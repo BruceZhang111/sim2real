@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "so101-sim2real"
+version = "0.1.0"
+description = "Sim2real reinforcement-learning pipeline for the SO-101 (Feetech STS3215) robotic arm"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "mujoco>=3.2,<4",
+    "gymnasium>=0.29,<2",
+    "numpy>=1.24",
+    "stable-baselines3>=2.3",
+    "pyyaml>=6.0",
+    "onnx>=1.15",
+    "onnxruntime>=1.17",
+    "imageio>=2.30",
+    "imageio-ffmpeg>=0.4",
+    "tensorboard>=2.14",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+# Only needed to drive the physical arm.
+deploy = ["feetech-servo-sdk>=1.0"]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+so101-train = "sim2real.train:main"
+so101-eval = "sim2real.eval:main"
+so101-watch = "sim2real.visualize:main"
+so101-export = "sim2real.export_policy:main"
+so101-deploy = "sim2real.deploy.deploy_so101:main"
+
+[tool.setuptools]
+packages = ["sim2real", "sim2real.envs", "sim2real.wrappers", "sim2real.utils", "sim2real.deploy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

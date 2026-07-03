@@ -1,0 +1,23 @@
+# training artifacts
+outputs/
+*.zip
+*.onnx
+*.pkl
+*.mp4
+CLAUDE.md
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# venv / editor
+.venv/
+venv/
+.vscode/
+.idea/
+.DS_Store

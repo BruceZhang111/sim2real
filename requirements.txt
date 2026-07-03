@@ -1,0 +1,16 @@
+# Core sim2real training stack (tested on Python 3.11, CUDA 13 / RTX 4090).
+# For an editable install with console scripts, prefer:  pip install -e .
+mujoco>=3.2,<4
+gymnasium>=0.29,<2
+numpy>=1.24
+stable-baselines3>=2.3
+pyyaml>=6.0
+onnx>=1.15
+onnxruntime>=1.17
+imageio>=2.30
+imageio-ffmpeg>=0.4
+tensorboard>=2.14
+rich>=13.0
+
+# Real-robot deployment only (Feetech STS3215 serial bus); optional:
+# feetech-servo-sdk>=1.0

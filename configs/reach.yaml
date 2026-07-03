@@ -1,0 +1,143 @@
+env:
+  env_id: SO101Reach-v0
+  model_path: assets/so101/reach_scene.xml
+  control_freq: 25.0
+  action_mode: delta
+  action_scale: 0.1
+  action_joints:
+  - shoulder_pan
+  - shoulder_lift
+  - elbow_flex
+  - wrist_flex
+  - wrist_roll
+  gripper_hold: 0.5
+  max_episode_steps: 200
+  target_low:
+  - 0.12
+  - -0.22
+  - 0.06
+  target_high:
+  - 0.34
+  - 0.22
+  - 0.32
+  success_threshold: 0.02
+  success_hold_steps: 10
+  init_qpos: null
+  init_qpos_noise: 0.05
+  obs_joint_noise_std: 0.0
+  obs_vel_noise_std: 0.0
+  include_last_action: true
+  self_collision: false
+  w_dist: 1.0
+  w_near: 0.4
+  near_scale: 0.05
+  w_ctrl: 0.01
+  w_vel: 0.0015
+  success_bonus: 5.0
+  cup_init_low:
+  - 0.2
+  - -0.12
+  cup_init_high:
+  - 0.28
+  - 0.12
+  goal_low:
+  - 0.18
+  - -0.14
+  goal_high:
+  - 0.3
+  - 0.14
+  cup_rest_z: 0.025
+  min_cup_goal_sep: 0.08
+  grasp_dist: 0.035
+  lift_thresh: 0.02
+  lift_target: 0.12
+  place_height_tol: 0.02
+  cup_speed_thresh: 0.08
+  w_reach: 1.0
+  w_lift: 4.0
+  w_grasp: 1.0
+  w_transport: 1.5
+dr:
+  enabled: true
+  mass_scale:
+  - 0.8
+  - 1.2
+  inertia_scale:
+  - 0.8
+  - 1.2
+  damping_scale:
+  - 0.5
+  - 1.6
+  frictionloss_scale:
+  - 0.5
+  - 1.6
+  armature_scale:
+  - 0.7
+  - 1.4
+  gain_scale:
+  - 0.8
+  - 1.2
+  kv_scale:
+  - 0.8
+  - 1.2
+  gravity_std: 0.15
+  action_latency_steps:
+  - 0
+  - 2
+  action_noise_std: 0.01
+train:
+  algo: ppo
+  total_timesteps: 2000000
+  n_envs: 8
+  seed: 0
+  device: auto
+  n_steps: 512
+  batch_size: 1024
+  n_epochs: 18
+  gamma: 0.98
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.0
+  learning_rate: 0.0003
+  buffer_size: 1000000
+  learning_starts: 10000
+  train_freq: 1
+  tau: 0.005
+  policy_hidden:
+  - 256
+  - 256
+  normalize_obs: true
+  normalize_reward: true
+  eval_freq: 25000
+  n_eval_episodes: 20
+  save_freq: 100000
+  log_dir: outputs
+  run_name: null
+deploy:
+  port: /dev/ttyACM0
+  baudrate: 1000000
+  servo_ids:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  ticks_per_rev: 4096
+  center_ticks:
+  - 2048
+  - 2048
+  - 2048
+  - 2048
+  - 2048
+  - 2048
+  joint_sign:
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  max_step_rad: 0.15
+  torque_limit: 0.5
+  control_freq: 25.0

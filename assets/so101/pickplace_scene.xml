@@ -1,0 +1,66 @@
+<?xml version="1.0" ?>
+<!--
+  SO-101 pick-and-place task scene: the arm, a graspable cup, and a goal pad.
+
+  The cup is a free-floating rigid body (translucent "glass" cylinder = the
+  collidable, graspable geom) with a cosmetic "water" cylinder filling its lower
+  half. The water is visual-only (contype/conaffinity 0) and rigidly attached,
+  so it rides with the cup and does NOT spill — MuJoCo has no fluid sim.
+
+  High friction + condim=4 on the cup so the small SO-101 jaw can actually hold
+  it. The goal is a mocap pad the env repositions each reset.
+-->
+<mujoco model="so101_pickplace">
+  <include file="so101_new_calib.xml"/>
+
+  <statistic center="0.22 0 0.08" extent="0.6"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="150" elevation="-22" offwidth="1280" offheight="960"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0"
+             width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge"
+             rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8"
+             width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true"
+              texrepeat="5 5" reflectance="0.2"/>
+    <material name="glass" rgba="0.75 0.85 1.0 0.30"/>
+    <material name="water" rgba="0.15 0.5 0.85 0.85"/>
+    <material name="goalpad" rgba="0.15 0.85 0.35 0.45"/>
+    <material name="startpad" rgba="0.9 0.2 0.15 0.45"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 3.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" size="0 0 0.05" pos="0 0 0" type="plane" material="groundplane"/>
+
+    <!-- Graspable cup: glass R=0.014 H=0.05 (half-height 0.025). Water fills the
+         lower half (visual only). -->
+    <body name="cup" pos="0.25 0.0 0.025">
+      <freejoint name="cup_free"/>
+      <inertial pos="0 0 0" mass="0.028" diaginertia="1.2e-5 1.2e-5 6e-6"/>
+      <geom name="cup_glass" type="cylinder" size="0.014 0.025" material="glass"
+            friction="1.6 0.05 0.002" condim="4" priority="1"/>
+      <geom name="cup_water" type="cylinder" size="0.0125 0.0115" pos="0 0 -0.0115"
+            material="water" contype="0" conaffinity="0" group="2"/>
+    </body>
+
+    <!-- Goal pad (where the cup should end up). mocap => moved via mocap_pos. -->
+    <body name="goal" mocap="true" pos="0.20 0.15 0.001">
+      <geom name="goal_pad" type="cylinder" size="0.028 0.001" material="goalpad"
+            contype="0" conaffinity="0" group="1"/>
+    </body>
+
+    <!-- Start pad (marks where the cup begins; the env moves it under the cup
+         each reset). Purely visual. -->
+    <body name="start" mocap="true" pos="0.25 -0.10 0.0008">
+      <geom name="start_pad" type="cylinder" size="0.028 0.0008" material="startpad"
+            contype="0" conaffinity="0" group="1"/>
+    </body>
+  </worldbody>
+</mujoco>
