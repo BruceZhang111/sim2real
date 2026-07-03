@@ -16,6 +16,8 @@ see [Tasks](#tasks)).
         Gymnasium env            Stable-Baselines3            (normalization baked in)     real arm
 ```
 
+![Pick-and-place demo: cup of water from the red pad to the green pad](post/assets/pickplace_final.gif)
+
 - **Arm:** SO-101 / SO-ARM100, 5 arm joints + gripper (STS3215)
 - **Sim:** MuJoCo 3, official calibrated MJCF vendored under `assets/so101/`
 - **RL:** Stable-Baselines3 (PPO default, SAC available), GPU via PyTorch
@@ -40,9 +42,9 @@ conda activate sim2real
 # 2. sanity-check the whole pipeline in ~10 s (tiny training run)
 make smoke
 
-# 3. train for real (PPO; edit the config to taste)
-make train                            # reach:      python -m sim2real.train --config configs/reach.yaml
-make train-pickplace                  # pick-place: python -m sim2real.train --config configs/pickplace.yaml
+# 3. train for real (edit the config to taste)
+make train                            # reach (PPO): python -m sim2real.train --config configs/reach.yaml
+python -m sim2real.train --config configs/pickplace_sac5.yaml --run-name my_run   # pick-place (SAC, best recipe)
 make tb                               # (optional) live TensorBoard curves while it trains
 
 # 4. watch the trained policy in an interactive MuJoCo window
@@ -70,7 +72,9 @@ Four ways to inspect a trained policy in `outputs/<run>/`:
 
 | Command | What you get |
 |---|---|
-| `make watch RUN=outputs/<run>` | **Interactive** MuJoCo window — watch the policy live (reach target or cup+goal pad); orbit/zoom the camera. Needs a desktop display. |
+| `python scripts/hybrid_pickplace.py --watch` | **The full pick-and-place task, live**: scripted pickup + learned carry/place (~83% success). `--video out.mp4` records instead. |
+| `python scripts/watch_skills.py outputs/<run>` | Live window of a (possibly still-training) policy on its curriculum skills — set-downs, grasps, carries. |
+| `make watch RUN=outputs/<run>` | **Interactive** MuJoCo window — the raw policy from scratch (reach target or cup+goal pad). Needs a desktop display. |
 | `make video RUN=outputs/<run>` | Renders `outputs/<run>/rollout.mp4` **headless** (works over SSH). |
 | `make tb` | TensorBoard: reward, success rate, losses. |
 | `python -m sim2real.eval --run outputs/<run>` | The numbers: success rate + distance metric. |
@@ -123,34 +127,41 @@ Move the gripper TCP to a random 3D target. Observation = joint angles +
 velocities + TCP (forward kinematics) + target — **all measurable on the real
 arm**, so this task transfers from proprioception alone.
 
-### pick-and-place — `SO101PickPlace-v0` (`configs/pickplace.yaml`)
-Grasp a free-standing cup **of fluid** and place it upright on a goal pad. The
-gripper joins the action space (6 controlled joints); the cup is a rigid body
-with a cosmetic half-fill (MuJoCo has no fluid sim, so *spilling is modelled as
-a tilt limit*: tilting the cup past `spill_tilt` ≈ 26° ends the episode as a
-failure, dense `w_upright` shaping keeps it level in between, and "placed"
-requires the cup upright). Reward is staged with positive shaped bonuses:
-approach → touch → lift → hold → carry → place, all while keeping the cup
-level (design rationale and the reward-hacking war stories are in
+### pick-and-place — `SO101PickPlace-v0` (`configs/pickplace_sac5.yaml`)
+Grasp a free-standing cup **of fluid** off a **red start pad** and place it
+upright on a **green goal pad** on the opposite side of the workspace (random
+spots each episode). The gripper joins the action space (6 controlled joints);
+the cup is a rigid body with a cosmetic half-fill (MuJoCo has no fluid sim, so
+*spilling is modelled as a tilt limit*: tilting the cup past `spill_tilt` ends
+the episode as a failure, dense `w_upright` shaping keeps it level in between,
+and "placed" requires the cup upright). Reward is staged with positive shaped
+bonuses: approach → touch → lift → hold → carry → place, all while keeping the
+cup level (design rationale and the reward-hacking war stories are in
 [`docs/HOW_IT_WORKS.md` §5](docs/HOW_IT_WORKS.md)).
 
-Two things make this task *trainable* at all:
+Three things make this task work:
 
 - **Jaw collision fix** (`fix_gripper_collision`, default on): MuJoCo collides
   meshes as convex hulls, which seals the stock SO-101 gripper mouth solid —
   grasping is physically impossible against the vendored meshes. The env
   rebuilds the jaw collision as vertex-fitted box pads at load time
   (`docs/HOW_IT_WORKS.md` §2.5).
-- **Curriculum resets** (`grasp_init_prob` / `hold_init_prob` /
-  `place_init_prob`): a fraction of *training* episodes start with the jaws
-  around the cup, already holding it, or holding it above the goal. Eval always
-  starts from scratch, so reported success rates measure the real task.
+- **Curriculum resets** (`approach/grasp/hold/carry/place_init_prob`): a
+  fraction of *training* episodes start mid-skill — near the cup, jaws around
+  it, holding it, carrying it aloft, or hovering over the goal. Skills
+  consolidate back-to-front. Eval always starts from scratch, so reported
+  success rates measure the real task.
+- **A hybrid final controller** (`scripts/hybrid_pickplace.py`): a scripted
+  approach/pickup primitive (IK + servo position steps — on hardware this runs
+  off the perceived cup pose) hands the lifted cup to the learned SAC policy
+  for the carry and the gentle set-down. **~83% full-task success** on random
+  layouts in sim. Pure-RL cold starts converge to avoiding the cup — honest
+  benchmarks and the why are in [`post/how-to-train.md`](post/how-to-train.md).
 
 > **Sim2real caveat:** the observation includes the cup pose, which the servos
 > cannot measure. Real deployment needs object perception (overhead camera /
 > AprilTag) feeding the cup pose into the same observation slot — everything else
-> transfers as usual. Grasping is also much harder to learn than reach; expect
-> the full 5M-step budget.
+> transfers as usual.
 
 ---
 
@@ -161,8 +172,8 @@ sim2real/
 ├── assets/so101/            # vendored SO-101 MJCF + STL meshes (upstream, pristine)
 │   ├── so101_new_calib.xml  #   robot definition (do not edit; re-sync w/ scripts/fetch_assets.sh)
 │   ├── reach_scene.xml      #   reach task scene: robot + floor + mocap target  (ours)
-│   └── pickplace_scene.xml  #   pick-place scene: robot + cup + goal pad        (ours)
-├── configs/                 # reach.yaml, sac_reach.yaml, reach_hard_dr.yaml, pickplace.yaml
+│   └── pickplace_scene.xml  #   pick-place scene: robot + cup + red/green pads  (ours)
+├── configs/                 # reach*.yaml, pickplace*.yaml (pickplace_sac5 = best recipe)
 ├── sim2real/
 │   ├── config.py            # typed dataclass config (one YAML == one run)
 │   ├── envs/base.py         # SO101MujocoBase: shared control / DR / collisions
@@ -176,8 +187,11 @@ sim2real/
 │   ├── export_policy.py     # -> ONNX with normalization baked in
 │   ├── utils/kinematics.py  # shared forward kinematics (sim == real)
 │   └── deploy/              # Feetech bus + real-robot control loop
-├── tests/                   # fast CPU tests (env, DR, wrappers, FK, calibration)
-├── scripts/                 # setup.sh, fetch_assets.sh
+├── tests/                   # 28 fast CPU tests (env, DR, grasping, rewards, FK)
+├── scripts/                 # setup.sh, fetch_assets.sh,
+│                            # hybrid_pickplace.py (full-task runner: scripted pickup + RL),
+│                            # watch_skills.py (live viewer for curriculum skills)
+├── post/                    # blog posts: the debugging story + hands-on how-to guide
 └── Makefile
 ```
 
@@ -198,14 +212,20 @@ safety limits, and wiring notes. Install the servo SDK with
 ## Status & roadmap
 
 - [x] SO-101 MuJoCo reach task + domain randomization
-- [x] Pick-and-place task (gripper + graspable cup)
-- [x] Gripper collision fix (convex-hull jaws) + grasp curricula — from-scratch
-      grasping verified in sim
+- [x] Pick-and-place task: cup of fluid, red→green pads, tilt = spill
+- [x] Gripper collision fix (convex-hull jaws) + five-rung grasp curriculum
 - [x] PPO/SAC training, eval, ONNX export, sim + hardware deploy loop
 - [x] Visualization: interactive viewer, mp4 rendering, TensorBoard
-- [ ] Consistent from-scratch place success (full pick→carry→place chain)
+- [x] Hybrid full-task controller (scripted pickup + learned carry/place, ~83% in sim)
+- [ ] Pure-RL from-scratch approach (current policies avoid the cup — see `post/`)
+- [ ] Slosh realism (acceleration penalty) + force-aware gripping
 - [ ] Object perception for pick-place on hardware (camera / AprilTag)
 - [ ] Pixel observations + camera domain randomization
 - [ ] Sim2real gap logging (record real rollouts, compare to sim)
+
+**Read more:** [`post/README.md`](post/README.md) — how a 5M-step run with *zero*
+grasps led to the convex-hull discovery and everything after;
+[`post/how-to-train.md`](post/how-to-train.md) — the hands-on guide with honest
+benchmarks.
 
 Model assets are © TheRobotStudio (SO-ARM100), Apache-2.0.

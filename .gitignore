@@ -4,6 +4,7 @@ outputs/
 *.onnx
 *.pkl
 *.mp4
+!post/assets/*.mp4
 CLAUDE.md
 # python
 __pycache__/
