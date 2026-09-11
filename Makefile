@@ -62,7 +62,7 @@ test:
 	$(PY) -m pytest
 
 tb:
-	tensorboard --logdir outputs
+	tensorboard --logdir outputs --bind_all
 
 clean:
 	rm -rf outputs/* **/__pycache__ .pytest_cache
