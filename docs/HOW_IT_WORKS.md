@@ -121,8 +121,8 @@ Open `assets/so101/so101_new_calib.xml`. The pieces that matter:
 - **`<site name="gripperframe">`** — a named coordinate frame at the fingertip.
   We read its world position as the **TCP** (tool-centre-point).
 
-The SO-101 is 6 actuated joints: `shoulder_pan, shoulder_lift, elbow_flex,
-wrist_flex, wrist_roll, gripper`. That fixed order lives in
+**The SO-101 is 6 actuated joints: `shoulder_pan, shoulder_lift, elbow_flex,
+wrist_flex, wrist_roll, gripper`.** That fixed order lives in
 `config.ALL_JOINTS` and everything indexes by it.
 
 ### 2.3 Stage a task around the robot

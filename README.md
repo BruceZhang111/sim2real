@@ -123,7 +123,7 @@ Evaluate with `--randomize` to get the number that actually predicts transfer.
 Select the task with `env_id` in the config file.
 
 ### reach — `SO101Reach-v0` (`configs/reach.yaml`)
-Move the gripper TCP to a random 3D target. Observation = joint angles +
+Move the gripper TCP(Tool Center Point) to a random 3D target. Observation = joint angles +
 velocities + TCP (forward kinematics) + target — **all measurable on the real
 arm**, so this task transfers from proprioception alone.
 
