@@ -25,14 +25,18 @@ from sim2real.config import ALL_JOINTS, DRConfig, EnvConfig, REPO_ROOT
 # palm+fixed-jaw piece and the hull of the moving jaw fill the space between
 # the jaws: in collision space the gripper mouth is solid and nothing can ever
 # be grasped (objects get expelled from the hull volume with deep soft
+#-----------------------------------------------------------------------------------
 # penetration). We keep the vendored MJCF pristine and instead rebuild those
 # two geoms at load time via MjSpec: collision is disabled on the hulled mesh
 # and replaced by boxes fitted to the mesh vertices — the finger blade is split
 # into slabs along its long axis (to follow the taper) plus one box for the
 # palm/hinge base.
+#-----------------------------------------------------------------------------------
 #
 # body name -> (collision mesh, blade long axis in body frame, blade extent:
 #               vertices with coord[axis] < limit belong to the finger blade)
+
+#夹爪碰撞修补配置
 _JAW_COLLISION_FIX = {
     "gripper": ("wrist_roll_follower_so101_v1", 2, -0.030),
     "moving_jaw_so101_v1": ("moving_jaw_so101_v1", 1, -0.010),
@@ -46,6 +50,8 @@ class SO101MujocoBase(gym.Env):
         import mujoco
 
         self._mj = mujoco
+        #config 在外部预先定义模型配置、训练参数、超参数等信息，直接导入作为类属性使用
+        #config——>parameters model data
         self.cfg = config or EnvConfig()
         self.dr = dr or DRConfig()
         self.render_mode = render_mode
@@ -56,32 +62,42 @@ class SO101MujocoBase(gym.Env):
         self.model = self._load_model(str(model_path))
         self.data = mujoco.MjData(self.model)
 
+        # MuJoCo 的单步仿真时间间隔
         sim_dt = self.model.opt.timestep
+        # 计算一次 Gymnasium step() 要执行多少个 MuJoCo 内部步。
         self.frame_skip = max(1, round((1.0 / self.cfg.control_freq) / sim_dt))
+        # 渲染帧率更新为实际控制频率
         self.metadata = dict(self.metadata, render_fps=int(round(self.cfg.control_freq)))
 
         # joint / actuator bookkeeping (by name -> robust to extra object dofs)
+        # jnt_adr是mujoco导入模型后自动产生的静态地址属性
         self._joint_ids = np.array([self._jid(j) for j in ALL_JOINTS], dtype=int)
         self._qadr = self.model.jnt_qposadr[self._joint_ids].copy()
         self._vadr = self.model.jnt_dofadr[self._joint_ids].copy()
         self._jnt_range = self.model.jnt_range[self._joint_ids].copy()
+        # 通过 _aid(j) 查找每个关节对应的 actuator ID
         self._act_ids = np.array([self._aid(j) for j in ALL_JOINTS], dtype=int)
 
+        # 根据配置中的 action_joints，找出ALL_JOINTS中哪些关节由策略控制
         self.action_joint_idx = np.array(
             [ALL_JOINTS.index(j) for j in self.cfg.action_joints], dtype=int
         )
+        # 找出不由策略控制、而是保持固定目标的关节
         self.hold_joint_idx = np.array(
             [i for i in range(len(ALL_JOINTS)) if i not in set(self.action_joint_idx.tolist())],
             dtype=int,
         )
         self.n_action = len(self.action_joint_idx)
         # per-joint delta scale (gripper may close faster; see config)
+        # 实际动作 = 策略动作 × action_scale
+        # Delta 控制模式（增量控制） 单步允许最大步长
         self.action_scales = np.full(self.n_action, self.cfg.action_scale)
         if self.cfg.gripper_action_scale is not None and "gripper" in self.cfg.action_joints:
             self.action_scales[list(self.cfg.action_joints).index("gripper")] = (
                 self.cfg.gripper_action_scale
             )
 
+        # 保存未随机化时的“标称”模型参数
         self._nominal = {
             "body_mass": self.model.body_mass.copy(),
             "body_inertia": self.model.body_inertia.copy(),
@@ -97,6 +113,7 @@ class SO101MujocoBase(gym.Env):
         self._setup_task()  # subclass resolves task-specific ids
 
         self.action_space = spaces.Box(-1.0, 1.0, shape=(self.n_action,), dtype=np.float32)
+        # 观察维度由子类实现的 _obs_dim() 决定，因为不同任务的 observation 组成不同
         self.observation_space = spaces.Box(
             -np.inf, np.inf, shape=(self._obs_dim(),), dtype=np.float32
         )
