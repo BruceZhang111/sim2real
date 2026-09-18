@@ -135,12 +135,21 @@ class SO101MujocoBase(gym.Env):
                for b in _JAW_COLLISION_FIX):
             return model  # scene without the SO-101 gripper
         spec = mujoco.MjSpec.from_file(path)
+        # 用新的、更可控的碰撞几何体替换原来的碰撞几何体   检索Jaw的原始名称，将该名称对应的原始convex hulls碰撞取消，再替换为新的FIX结果
         for body_name, (mesh_name, axis, blade_lim) in _JAW_COLLISION_FIX.items():
             body = spec.body(body_name)
+            # 遍历这个 body 下的所有几何体  contype！=0表示它当前参与碰撞
             for g in body.geoms:
                 if g.meshname == mesh_name and g.contype != 0:
                     g.contype = 0
                     g.conaffinity = 0
+                """MuJoCo 的碰撞通常由两个位掩码共同决定：
+                    - contype:该 geom 属于哪些碰撞类型；
+                    - conaffinity:该 geom 接受哪些碰撞类型。
+                    将二者都设为 0,可以彻底禁用该网格的碰撞。"""
+            # 调用 _jaw_pad_boxes()，计算要添加的碰撞盒。
+            # center：盒体中心位置；
+            # half：盒体在三个坐标轴方向上的半尺寸。
             for i, (center, half) in enumerate(
                 self._jaw_pad_boxes(model, body_name, mesh_name, axis, blade_lim)
             ):
@@ -155,11 +164,35 @@ class SO101MujocoBase(gym.Env):
                 pad.conaffinity = 1
         return spec.compile()
 
+        """gripper body
+            ├── 原始 mesh geom
+            │   ├── 用于渲染
+            │   └── contype=0，不能碰撞
+            │
+            └── pad box geom
+                ├── 用于碰撞
+                └── contype=1, conaffinity=1
+
+            cup body
+            └── cup geom
+                └── 用于碰撞
+
+            最终：
+            pad box geom ↔ cup geom
+            
+            Mujoco的碰撞检测实际发生在geom 2 geom上
+            """
+
+    """mesh 保存固定的原始网格顶点；每个 geom 都是该 mesh 的一个实例，
+    通过自己的位置和四元数把 mesh 变换到所属 body 坐标系；
+    body 再通过自身的运动状态把它变换到世界坐标系。当前代码计算的是 body 坐标系中的顶点，并据此生成同一 body 下的碰撞盒"""
     def _jaw_pad_boxes(self, model, body_name, mesh_name, axis, blade_lim,
                        n_slabs: int = 3):
         """Boxes (centre, half-size in body frame) covering a jaw's collision mesh."""
         mujoco = self._mj
+        # 通过 body 名称查找 MuJoCo 内部 ID
         bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        # 找到属于指定 body、参与碰撞、使用 mesh，并且 mesh 名称匹配的第一个 geom
         gid = next(
             g for g in range(model.ngeom)
             if model.geom_bodyid[g] == bid
@@ -169,13 +202,23 @@ class SO101MujocoBase(gym.Env):
                 model, mujoco.mjtObj.mjOBJ_MESH, model.geom_dataid[g]
             ) == mesh_name
         )
+        # 获取目标 geom 所使用的 mesh ID  一个 mesh 可以被多个 geom 使用
         mid = model.geom_dataid[gid]
+        # vert for vertex
+        # va为第mid个mesh的顶点的起始位置，vn为该mesh的顶点个数，MuJoCo会把所有mesh同一到mesh_vert中
         va, vn = model.mesh_vertadr[mid], model.mesh_vertnum[mid]
         rot = np.zeros(9)
+        # mju_quat2Mat 将四元数转换成旋转矩阵，并写入 rot
         mujoco.mju_quat2Mat(rot, model.geom_quat[gid])
+        # 是的，从概念上讲，一个 mesh 资源的顶点是固定的
+        # verts.shape == (vn, 3)   转置是因为顶点以“行向量”形式存储，而旋转矩阵通常按“列向量”公式使用
         verts = model.geom_pos[gid] + model.mesh_vert[va:va + vn] @ rot.reshape(3, 3).T
+        # 以上操作获取了选定geom的旋转矩阵，并根据geom的位置向量和旋转矩阵计算了对应mesh的顶点位置
+        # verts 只是 body 局部坐标
 
+        # (center, half_size)
         def bbox(points, lo=None, hi=None):
+            # 表示点集在三个坐标轴上的范围，构成一个轴对齐包围盒
             mins, maxs = points.min(axis=0), points.max(axis=0)
             if lo is not None:
                 mins[axis], maxs[axis] = lo, hi
@@ -189,6 +232,13 @@ class SO101MujocoBase(gym.Env):
         ]
         boxes.append(bbox(verts[verts[:, axis] >= blade_lim]))  # palm / hinge base
         return boxes
+        """[
+            (center_0, half_size_0),
+            (center_1, half_size_1),
+            (center_2, half_size_2),
+            (center_palm, half_size_palm),
+        ]"""
+
 
     # -- id helpers ---------------------------------------------------------
     def _jid(self, n): return self._mj.mj_name2id(self.model, self._mj.mjtObj.mjOBJ_JOINT, n)
@@ -196,6 +246,10 @@ class SO101MujocoBase(gym.Env):
     def _sid(self, n): return self._mj.mj_name2id(self.model, self._mj.mjtObj.mjOBJ_SITE, n)
     def _bid(self, n): return self._mj.mj_name2id(self.model, self._mj.mjtObj.mjOBJ_BODY, n)
 
+
+    """body 是否有 free joint
+    ├── 有:True,通常是杯子或其他可抓取物体
+    └── 没有:False,通常是固定世界或机器人链接"""
     def _body_has_free_joint(self, body_id: int) -> bool:
         jadr = self.model.body_jntadr[body_id]
         jnum = self.model.body_jntnum[body_id]
@@ -223,8 +277,9 @@ class SO101MujocoBase(gym.Env):
             if self.model.geom_contype[g] == 0 and self.model.geom_conaffinity[g] == 0:
                 continue  # visual-only geom
             body = self.model.geom_bodyid[g]
+            # 碰撞分类不是直接根据 geom 名称判断，而是根据它所属的 body 判断
             if self._body_has_free_joint(body):
-                ct, ca = 4, 3        # object (cup)
+                ct, ca = 4, 3        # object (cup)  contype=4, conaffinity=3
             elif body == 0:
                 ct, ca = 1, 6        # world / floor
             else:
@@ -267,6 +322,15 @@ class SO101MujocoBase(gym.Env):
     # -- control ------------------------------------------------------------
     def _apply_action(self, action: np.ndarray) -> None:
         cur = self.data.qpos[self._qadr[self.action_joint_idx]]
+        """
+        jnt range structure
+        [
+            [joint0_min, joint0_max],
+            [joint1_min, joint1_max],
+            ...
+        ]
+        根据action计算需要的target,再将target写入self.data中,在mujoco中执行多个内部步
+        """
         lo = self._jnt_range[self.action_joint_idx, 0]
         hi = self._jnt_range[self.action_joint_idx, 1]
         if self.cfg.action_mode == "delta":
@@ -279,12 +343,18 @@ class SO101MujocoBase(gym.Env):
         self.data.ctrl[self._act_ids[self.action_joint_idx]] = target
         if len(self.hold_joint_idx):
             self.data.ctrl[self._act_ids[self.hold_joint_idx]] = self._hold_targets
+        # 执行多个 MuJoCo 内部步
         for _ in range(self.frame_skip):
             self._mj.mj_step(self.model, self.data)
 
     # -- gym API ------------------------------------------------------------
     def reset(self, *, seed=None, options=None):
+        # 自动初始化出self.np_random
+        # 它本质上是一个 NumPy 随机数生成器，后面就可以使用：
+        # self.np_random.uniform(...)
+        # self.np_random.normal(...)
         super().reset(seed=seed)
+
         self._apply_domain_randomization()
         self._mj.mj_resetData(self.model, self.data)
 
@@ -300,16 +370,29 @@ class SO101MujocoBase(gym.Env):
         self.data.ctrl[self._act_ids] = qpos
         self._hold_targets = qpos[self.hold_joint_idx].copy()
 
+        # 重置具体任务 调用子类实现
         self._reset_task()
+        # 代码直接修改了 qpos 和 qvel，需要用 mj_forward() 
+        #让 MuJoCo 的内部派生状态同步
+        # 这里的qpos和qvel不是由step算出来的
         self._mj.mj_forward(self.model, self.data)
 
         self._step_count = 0
         self._success_count = 0
         self._last_action = np.zeros(self.n_action, dtype=np.float32)
+        # 返回 Gymnasium 风格的二元组： (observation, info)
         return self._get_obs(), self._get_info()
 
+    # return  observation, reward, terminated, truncated, info
     def step(self, action):
         action = np.clip(np.asarray(action, dtype=np.float64), -1.0, 1.0)
+        """
+        读取当前关节位置；
+        根据 delta 或 absolute 模式计算目标；
+        将目标限制在关节范围内；
+        写入 data.ctrl
+        执行若干个 mj_step()。
+        """
         self._apply_action(action)
         self._step_count += 1
         self._last_action = action.astype(np.float32)
@@ -323,12 +406,16 @@ class SO101MujocoBase(gym.Env):
         # flung free object — would poison the observation), but the speed
         # threshold looks only at the ARM dofs: a fast-moving cup is bad play,
         # not a numerical blow-up, and shouldn't abort the episode.
+        # # 此时不记录这些无效数据，而是给出惩罚并结束当前 episode。
+        # 同时绝不能把 NaN 或 inf 观测输入训练器，否则会污染 VecNormalize。
         arm_speed = float(np.max(np.abs(self.data.qvel[self._vadr])))
+        # 仿真发散检查
         diverged = (
             not np.all(np.isfinite(self.data.qpos))
             or not np.all(np.isfinite(self.data.qvel))
             or arm_speed > self.cfg.max_joint_speed
         )
+        # 仿真发散给rl的返回明显糟糕
         if diverged:
             obs = np.clip(np.nan_to_num(obs, nan=0.0, posinf=0.0, neginf=0.0),
                           -50.0, 50.0).astype(np.float32)
