@@ -43,6 +43,90 @@ _JAW_COLLISION_FIX = {
 }
 
 
+"""
+SO101MujocoBase
+    │
+    ├─ 机器人模型加载
+    ├─ 关节/执行器索引管理
+    ├─ 动作空间管理
+    ├─ 观测空间管理
+    ├─ 动作映射
+    ├─ MuJoCo 仿真推进
+    ├─ domain randomization
+    ├─ 碰撞配置
+    ├─ reset / step
+    ├─ 仿真发散检查
+    └─ render / close
+
+SO101ReachEnv
+    │
+    ├─ 定义 TCP 和 target
+    ├─ 随机生成 target
+    ├─ 组织 observation
+    ├─ 计算 TCP-target 距离
+    ├─ 设计 reward
+    ├─ 判断 success
+    └─ 判断任务是否完成
+
+
+┌──────────────────────────────────────────────┐
+│ 外部训练程序                                 │
+└──────────────────────────────────────────────┘
+                    │
+                    │ env.reset()
+                    ▼
+┌──────────────────────────────────────────────┐
+│ 父类 reset()                                 │
+│                                              │
+│ DR、重置 qpos/qvel、初始化控制目标            │
+│ 调用子类 _reset_task() 随机 target             │
+│ 调用 mj_forward() 同步 MuJoCo 派生状态        │
+│ 调用子类 _get_obs() / _get_info()             │
+└──────────────────────┬───────────────────────┘
+                       │ obs, info
+                       ▼
+┌──────────────────────────────────────────────┐
+│ 外部 RL policy                               │
+│                                              │
+│ 根据 observation 产生 action                  │
+└──────────────────────┬───────────────────────┘
+                       │ action
+                       ▼
+┌──────────────────────────────────────────────┐
+│ 父类 step(action)                             │
+│                                              │
+│ action 裁剪                                   │
+│ _apply_action()                              │
+│ action → ctrl                                │
+│ ctrl → 多次 mj_step()                         │
+│ MuJoCo → 新 qpos/qvel/TCP                     │
+└──────────────────────┬───────────────────────┘
+                       │ 新仿真状态
+                       ▼
+┌──────────────────────────────────────────────┐
+│ 子类 Reach 任务反馈                           │
+│                                              │
+│ _get_obs()                                   │
+│ _distance()                                  │
+│ _reach_reward()                              │
+│ _reward_and_done()                            │
+│ _get_info()                                  │
+└──────────────────────┬───────────────────────┘
+                       │ obs, reward, done, info
+                       ▼
+              ┌────────────────────┐
+              │ 是否结束 episode？  │
+              └─────────┬──────────┘
+                        │
+             否         │         是
+             │          │          │
+             ▼          │          ▼
+      policy(obs)       │     env.reset()
+      生成下一动作       │     开始新 episode
+                        │
+
+"""
+
 class SO101MujocoBase(gym.Env):
     metadata = {"render_modes": ["rgb_array"], "render_fps": 25}
 
