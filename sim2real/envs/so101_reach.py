@@ -88,6 +88,8 @@ class SO101ReachEnv(SO101MujocoBase):
         - 距离惩罚
         - 控制能量惩罚
         - 运动速度惩罚
+
+        当dist较小时,reward由线性项主导;当dist较大时.reward由指数项主导
         """
         reward = (
             -c.w_dist * dist
@@ -105,6 +107,7 @@ class SO101ReachEnv(SO101MujocoBase):
         reward, success = self._reach_reward(dist, action)
         # 连续成功计数，失败时归零
         self._success_count = self._success_count + 1 if success else 0
+        # success_hold_steps要求模型在进入成功区域后必须保持住，否则会存在随机性
         terminated = self._success_count >= self.cfg.success_hold_steps
         return reward, terminated, self._get_info(success)
 
