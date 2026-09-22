@@ -28,7 +28,6 @@ TCP_SITE = "gripperframe"
 
 class ForwardKinematics:
     """Evaluate SO-101 TCP position/orientation from joint angles."""
-
     def __init__(self, xml_path: str | Path | None = None, tcp_site: str = TCP_SITE):
         import mujoco  # local import: keeps `sim2real.config` import cheap
 
