@@ -7,6 +7,7 @@ which keeps sim and real perfectly in sync (observation layout, joint order,
 action scaling, normalization, ...).
 """
 
+# 先保存类型标注，等需要时再解析。这对引用尚未定义完成的类很方便
 from __future__ import annotations
 
 import dataclasses
@@ -32,7 +33,13 @@ ARM_JOINTS: tuple[str, ...] = (
 GRIPPER_JOINT: str = "gripper"
 ALL_JOINTS: tuple[str, ...] = ARM_JOINTS + (GRIPPER_JOINT,)
 
+# 装饰器将下方函数塞进装饰器中，并将修改好的新函数赋给同名变量
+# 装饰器（Decorator）本质就是一个“包装盒”。
+# 它吃进去一个函数，吐出来一个功能增强后的新函数，让你在不修改原函数代码的情况下给它添加新特性
+# 装饰器也可以给类自动添加一些方法
 
+# dataclass 简化专门用来存储数据的类（Data Classes）的创建
+# 读取类里写好的属性声明（如 name: str），然后在幕后自动你生成 __init__、__repr__、__eq__ 等一套完整的方法
 @dataclass
 class EnvConfig:
     """Task + MuJoCo environment definition for the reach task."""
@@ -184,7 +191,7 @@ class DRConfig:
     action_latency_steps: tuple[int, int] = (0, 2)  # random per-episode delay
     action_noise_std: float = 0.01                  # on the normalized action
 
-
+# 训练参数
 @dataclass
 class TrainConfig:
     """RL training hyper-parameters (Stable-Baselines3)."""
@@ -252,21 +259,26 @@ class DeployConfig:
     control_freq: float = 25.0
 
 
+# 把环境、域随机化、训练和部署配置放在一个对象里，并负责与 YAML 互相转换
 @dataclass
 class Config:
     """Top-level config: one object fully describes a run."""
-
+    # 类属性  所有类实例的类属性都指向同一块内存
+    # dataclass修饰器使得这里的类属性变成实例属性
+    # default_factory 负责“提供完备的保底蓝图”，而 YAML 文件负责“按需重写个性化参数”。
     env: EnvConfig = field(default_factory=EnvConfig)
     dr: DRConfig = field(default_factory=DRConfig)
     train: TrainConfig = field(default_factory=TrainConfig)
     deploy: DeployConfig = field(default_factory=DeployConfig)
 
     # -- (de)serialization --------------------------------------------------
+    # from yaml 字典-> from fict -> _from_dict
     @classmethod
     def from_yaml(cls, path: str | Path) -> "Config":
+        # Config.from_yaml("settings.yaml")  从文件中读出字典
         with open(path, "r") as f:
             data = yaml.safe_load(f) or {}
-        return cls.from_dict(data)
+        return cls.from_dict(data)  # 相当于Config.from_dict(data)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Config":
@@ -275,6 +287,7 @@ class Config:
     def to_dict(self) -> dict[str, Any]:
         # tuples -> lists so PyYAML's SafeDumper can represent them; from_dict
         # restores tuple-typed fields on load, so the round-trip is lossless.
+        # asdict将Config的子对象还原为嵌套字典结构
         return _to_plain(dataclasses.asdict(self))
 
     def to_yaml(self, path: str | Path) -> None:
@@ -284,6 +297,7 @@ class Config:
 
 
 def _from_dict(dc_type: type, data: dict[str, Any]) -> Any:
+    #dc_type = Config, data = {'train': {...}, 'deploy': {...}}
     """Recursively build a (possibly nested) dataclass from a plain dict.
 
     Unknown keys raise, so typos in a YAML config fail loudly instead of being
@@ -294,7 +308,9 @@ def _from_dict(dc_type: type, data: dict[str, Any]) -> Any:
     """
     if not is_dataclass(dc_type):
         return data
+    # 解析dc type中类属性的类型字典 
     hints = get_type_hints(dc_type)
+    # 校验顶层键(env, dr, train, deploy)
     field_names = {f.name for f in fields(dc_type)}
     unknown = set(data) - field_names
     if unknown:
@@ -303,7 +319,9 @@ def _from_dict(dc_type: type, data: dict[str, Any]) -> Any:
     for name in field_names:
         if name not in data:
             continue
+        # 取出字典里对应的值
         val = data[name]
+        # 取出该字段在代码里定义的类型提示
         hint = hints.get(name)
         if is_dataclass(hint) and isinstance(val, dict):
             kwargs[name] = _from_dict(hint, val)
@@ -311,6 +329,7 @@ def _from_dict(dc_type: type, data: dict[str, Any]) -> Any:
             kwargs[name] = tuple(val)
         else:
             kwargs[name] = val
+    # 嵌套对象（dataclass 实例）  config.deploy.port
     return dc_type(**kwargs)
 
 

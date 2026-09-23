@@ -5,7 +5,7 @@ actually moving on the real arm: a few control-steps of serial-bus / control
 latency, and small command noise. Randomizing them in sim makes the learned
 policy robust to the real robot's timing jitter.
 """
-
+# 模拟动作延迟和动作噪声的动作输出类，对base等父类做进一步封装
 from __future__ import annotations
 
 import numpy as np
