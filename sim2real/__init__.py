@@ -10,6 +10,7 @@ from gymnasium.envs.registration import register
 
 __version__ = "0.1.0"
 
+# 在 Gymnasium 的全局注册表中建立映射
 register(
     id="SO101Reach-v0",
     entry_point="sim2real.envs.so101_reach:SO101ReachEnv",

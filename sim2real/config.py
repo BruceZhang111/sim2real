@@ -265,6 +265,7 @@ class Config:
     """Top-level config: one object fully describes a run."""
     # 类属性  所有类实例的类属性都指向同一块内存
     # dataclass修饰器使得这里的类属性变成实例属性
+    
     # default_factory 负责“提供完备的保底蓝图”，而 YAML 文件负责“按需重写个性化参数”。
     env: EnvConfig = field(default_factory=EnvConfig)
     dr: DRConfig = field(default_factory=DRConfig)
