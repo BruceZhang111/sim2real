@@ -7,6 +7,8 @@
 Reports success rate and TCP-to-target distance. ``--randomize`` evaluates
 under domain randomization, which is the number that actually predicts
 real-world transfer.
+
+python -m sim2real.<模块名>
 """
 
 from __future__ import annotations

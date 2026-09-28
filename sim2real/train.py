@@ -301,3 +301,24 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+"""train.py
+    │
+    └─ outputs/<run_name>/
+       ├─ config.yaml
+       ├─ best_model/best_model.zip
+       ├─ final_model.zip
+       ├─ vecnormalize.pkl
+       └─ checkpoints/
+              │
+              ├──────────────┐
+              ▼              ▼
+           eval.py       visualize.py
+          数值评测        人工观察/视频
+              │
+              └──────────────┐
+                             ▼
+                     export_policy.py
+                    导出部署用 ONNX
+"""
