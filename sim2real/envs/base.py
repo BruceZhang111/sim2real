@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
+from typing import Callable
 
 from sim2real.config import ALL_JOINTS, DRConfig, EnvConfig, REPO_ROOT
 
@@ -147,11 +148,19 @@ class SO101MujocoBase(gym.Env):
         self.data = mujoco.MjData(self.model)
 
         # MuJoCo 的单步仿真时间间隔
-        sim_dt = self.model.opt.timestep
+        self.sim_dt = float(self.model.opt.timestep)
         # 计算一次 Gymnasium step() 要执行多少个 MuJoCo 内部步。
-        self.frame_skip = max(1, round((1.0 / self.cfg.control_freq) / sim_dt))
+        # control freq = 25Hz
+        self.frame_skip = max(1, round((1.0 / self.cfg.control_freq) / self.sim_dt))
+        # 因为 frame_skip 必须是整数，所以实际控制周期应当以此为准
+        self.control_dt = self.frame_skip * self.sim_dt
+        self.actual_control_freq = 1.0 / self.control_dt
         # 渲染帧率更新为实际控制频率
-        self.metadata = dict(self.metadata, render_fps=int(round(self.cfg.control_freq)))
+        self.metadata = dict(self.metadata, render_fps=int(round(self.actual_control_freq)))
+
+        # 仅在交互式可视化期间设置。
+        # 训练期间保持 None，避免给训练循环增加 Python 回调开销。
+        self._physics_step_callback: Callable[[float], None] | None = None
 
         # joint / actuator bookkeeping (by name -> robust to extra object dofs)
         # jnt_adr是mujoco导入模型后自动产生的静态地址属性
@@ -428,8 +437,28 @@ class SO101MujocoBase(gym.Env):
         if len(self.hold_joint_idx):
             self.data.ctrl[self._act_ids[self.hold_joint_idx]] = self._hold_targets
         # 执行多个 MuJoCo 内部步
-        for _ in range(self.frame_skip):
-            self._mj.mj_step(self.model, self.data)
+        callback = self._physics_step_callback
+
+        if callback is None:
+            # 训练、评估和普通测试走这个快速路径。
+            # 不在每个物理子步中执行 Python 回调。
+            for _ in range(self.frame_skip):
+                self._mj.mj_step(self.model, self.data)
+        else:
+            # 交互式可视化走这个路径。
+            # 策略动作仍然保持 frame_skip 个子步不变，
+            # 但 Viewer 可以取得中间物理状态。
+            for _ in range(self.frame_skip):
+                self._mj.mj_step(self.model, self.data)
+                callback(float(self.data.time))
+
+    def set_physics_step_callback(self, callback: Callable[[float], None] | None,) -> None:
+        """Set an optional callback invoked after each MuJoCo physics step.
+
+        The callback receives the current MuJoCo simulation time. It is intended
+        for interactive visualization only. Training leaves it as None.
+        """
+        self._physics_step_callback = callback
 
     # -- gym API ------------------------------------------------------------
     def reset(self, *, seed=None, options=None):
