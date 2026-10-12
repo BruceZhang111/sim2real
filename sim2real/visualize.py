@@ -3,6 +3,10 @@
 Two ways to see the policy after training:
 
     # interactive 3D viewer (needs a desktop session / display):
+    pickplace:
+    python -m sim2real.visualize --run outputs/<run> --device cpu
+
+    
     python -m sim2real.visualize --run outputs/<run>
     python -m sim2real.visualize --run outputs/<run> --randomize   # under domain rand
 

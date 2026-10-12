@@ -214,6 +214,7 @@ class SO101MujocoBase(gym.Env):
         self._step_count = 0
         self._success_count = 0
         self._last_action = np.zeros(self.n_action, dtype=np.float32)
+        self._prev_action = np.zeros(self.n_action, dtype=np.float32)
         self._hold_targets = np.zeros(len(self.hold_joint_idx), dtype=np.float64)
         self._renderer = None
 
@@ -493,6 +494,7 @@ class SO101MujocoBase(gym.Env):
         self._step_count = 0
         self._success_count = 0
         self._last_action = np.zeros(self.n_action, dtype=np.float32)
+        self._prev_action = np.zeros(self.n_action, dtype=np.float32)
         # 返回 Gymnasium 风格的二元组： (observation, info)
         return self._get_obs(), self._get_info()
 
@@ -508,6 +510,7 @@ class SO101MujocoBase(gym.Env):
         """
         self._apply_action(action)
         self._step_count += 1
+        self._prev_action = self._last_action.copy()
         self._last_action = action.astype(np.float32)
 
         obs = self._get_obs()

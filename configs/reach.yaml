@@ -21,6 +21,7 @@ env:
   - 0.22
   - 0.32
   success_threshold: 0.02
+  success_vel_threshold: 0.1
   success_hold_steps: 10
   init_qpos: null
   init_qpos_noise: 0.05
@@ -28,10 +29,12 @@ env:
   obs_vel_noise_std: 0.0
   include_last_action: true
   self_collision: false
+  reward_type: revised
   w_dist: 1.0
   w_near: 0.4
   near_scale: 0.05
   w_ctrl: 0.01
+  w_action_rate: 0.005
   w_vel: 0.0015
   success_bonus: 5.0
   cup_init_low:

@@ -79,25 +79,55 @@ class SO101ReachEnv(SO101MujocoBase):
         return np.concatenate(parts).astype(np.float32)
 
     def _reach_reward(self, dist: float, action: np.ndarray) -> tuple[float, bool]:
-        """Pure reward formula for a given TCP-target distance (uses live qvel)."""
+        """Dispatch to the configured reach reward implementation."""
+        if self.cfg.reward_type == "origin":
+            return self._reach_reward_origin(dist, action)
+        if self.cfg.reward_type == "revised":
+            return self._reach_reward_revised(dist, action)
+        raise ValueError(
+            f"unknown reach reward_type {self.cfg.reward_type!r} "
+            "(use 'origin' or 'revised')"
+        )
+
+    def _reach_reward_origin(
+        self, dist: float, action: np.ndarray
+    ) -> tuple[float, bool]:
+        """Original reward: distance, proximity, control and velocity terms."""
         c = self.cfg
         qvel = self.data.qvel[self._vadr]
-        """
-        总奖励 =
-        接近目标的奖励
-        - 距离惩罚
-        - 控制能量惩罚
-        - 运动速度惩罚
 
-        当dist较小时,reward由线性项主导;当dist较大时.reward由指数项主导
-        """
         reward = (
             -c.w_dist * dist
-            + c.w_near * np.exp(-dist / c.near_scale)
+            + c.w_near * np.exp(-(dist / c.near_scale))
             - c.w_ctrl * float(np.sum(action**2))
             - c.w_vel * float(np.sum(qvel**2))
         )
         success = dist < c.success_threshold
+        if success:
+            reward += c.success_bonus
+        return reward, success
+
+    def _reach_reward_revised(
+        self, dist: float, action: np.ndarray
+    ) -> tuple[float, bool]:
+        """Revised reward with action-rate penalty and low-speed success."""
+        c = self.cfg
+        qvel = self.data.qvel[self._vadr]
+        action_delta = action - self._prev_action
+
+        r_dist = -c.w_dist * dist
+        r_near = c.w_near * np.exp(-(dist / c.near_scale))
+        r_ctrl = -c.w_ctrl * float(np.sum(action**2))
+        r_action_rate = -c.w_action_rate * float(np.sum(action_delta**2))
+        r_vel = -c.w_vel * float(np.sum(qvel**2))
+
+        reward = r_dist + r_near + r_ctrl + r_action_rate + r_vel
+
+        joint_speed = float(np.linalg.norm(qvel))
+        success = (
+            dist < c.success_threshold
+            and joint_speed < c.success_vel_threshold
+        )
         if success:
             reward += c.success_bonus
         return reward, success

@@ -2,7 +2,10 @@
 
 Usage
 -----
-    python -m sim2real.train --config configs/reach.yaml
+    python -m sim2real.train --config configs/reach.yaml --reward-type origin --n-envs 4
+    python -m sim2real.train --config configs/reach.yaml --reward-type revised --n-envs 4
+    python -m sim2real.train --config configs/reach.yaml --device cpu
+    python -m sim2real.train --config configs/pickplace.yaml --device cpu
     python -m sim2real.train --config configs/reach.yaml --timesteps 50000 --n-envs 4
     python -m sim2real.train --smoke      # tiny run to verify the pipeline
 
@@ -262,6 +265,8 @@ def apply_overrides(cfg: Config, args) -> Config:
         cfg.train.init_from = args.init_from
     if args.device is not None:
         cfg.train.device = args.device
+    if args.reward_type is not None:
+        cfg.env.reward_type = args.reward_type
     if args.seed is not None:
         cfg.train.seed = args.seed
     return cfg
@@ -278,6 +283,7 @@ def main() -> None:
     p.add_argument("--init-from", type=str, default=None,
                    help="warm-start from this checkpoint .zip (see TrainConfig.init_from)")
     p.add_argument("--device", type=str, default=None)
+    p.add_argument("--reward-type", type=str, default=None, choices=["origin", "revised"])
     p.add_argument("--seed", type=int, default=None)
     p.add_argument("--smoke", action="store_true", help="tiny run to validate the pipeline")
     args = p.parse_args()

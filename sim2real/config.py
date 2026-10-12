@@ -66,6 +66,7 @@ class EnvConfig:
     target_low: list[float] = field(default_factory=lambda: [0.12, -0.22, 0.06])
     target_high: list[float] = field(default_factory=lambda: [0.34, 0.22, 0.32])
     success_threshold: float = 0.02     # m; "reached" when TCP within this
+    success_vel_threshold: float = 0.1  # rad/s; low joint speed required for success
     success_hold_steps: int = 10        # consecutive success steps to terminate
     init_qpos: list[float] | None = None  # home pose; None => zeros
     init_qpos_noise: float = 0.05       # rad uniform noise added to home
@@ -84,10 +85,12 @@ class EnvConfig:
                                         # (blew up) -> end the episode with a penalty
 
     # --- reward weights ---
+    reward_type: str = "revised"       # "origin" | "revised"
     w_dist: float = 1.0                 # -w_dist * ||tcp - target||
     w_near: float = 0.4                 # +w_near * exp(-dist / near_scale)
     near_scale: float = 0.05
     w_ctrl: float = 0.01                # -w_ctrl * ||action||^2
+    w_action_rate: float = 0.005        # -w_action_rate * ||action_t-action_(t-1)||^2
     w_vel: float = 0.0015               # -w_vel * ||qvel||^2  (smoothness)
     success_bonus: float = 5.0
 
