@@ -30,14 +30,16 @@ env:
   obs_vel_noise_std: 0.0
   include_last_action: true
   self_collision: false
-  reward_type: revised
+  reward_type: revised_v2
   w_dist: 1.0
   w_near: 0.4
+  w_near_v2: 0.1
   near_scale: 0.05
   w_ctrl: 0.01
   w_action_rate: 0.005
   w_vel: 0.0015
   success_bonus: 5.0
+  success_bonus_v2: 20.0
   cup_init_low:
   - 0.2
   - -0.12

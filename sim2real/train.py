@@ -3,8 +3,9 @@
 Usage
 -----
     训练效果跟n envs有关
-    python -m sim2real.train --config configs/reach.yaml --reward-type origin --n-envs 4
-    python -m sim2real.train --config configs/reach.yaml --reward-type revised --n-envs 4
+    python -m sim2real.train --config configs/reach.yaml --reward-type origin --n-envs 8
+    python -m sim2real.train --config configs/reach.yaml --reward-type revised --n-envs 8
+    python -m sim2real.train --config configs/reach.yaml --reward-type revised_v2 --n-envs 8
     python -m sim2real.train --config configs/reach.yaml --device cpu
     python -m sim2real.train --config configs/pickplace.yaml --device cpu
     python -m sim2real.train --config configs/reach.yaml --timesteps 50000 --n-envs 4
@@ -285,7 +286,8 @@ def main() -> None:
     p.add_argument("--init-from", type=str, default=None,
                    help="warm-start from this checkpoint .zip (see TrainConfig.init_from)")
     p.add_argument("--device", type=str, default=None)
-    p.add_argument("--reward-type", type=str, default=None, choices=["origin", "revised"])
+    p.add_argument("--reward-type", type=str, default=None,
+                   choices=["origin", "revised", "revised_v2"])
     p.add_argument("--seed", type=int, default=None)
     p.add_argument("--smoke", action="store_true", help="tiny run to validate the pipeline")
     args = p.parse_args()

@@ -84,9 +84,11 @@ class SO101ReachEnv(SO101MujocoBase):
             return self._reach_reward_origin(dist, action)
         if self.cfg.reward_type == "revised":
             return self._reach_reward_revised(dist, action)
+        if self.cfg.reward_type == "revised_v2":
+            return self._reach_reward_revised_v2(dist, action)
         raise ValueError(
             f"unknown reach reward_type {self.cfg.reward_type!r} "
-            "(use 'origin' or 'revised')"
+            "(use 'origin', 'revised' or 'revised_v2')"
         )
 
     def _reach_reward_origin(
@@ -133,18 +135,59 @@ class SO101ReachEnv(SO101MujocoBase):
             reward += c.success_bonus
         return reward, success
 
+    def _reach_reward_revised_v2(
+        self, dist: float, action: np.ndarray
+    ) -> tuple[float, bool]:
+        """Smooth reward whose success bonus is paid only on completion.
+
+        The terminal bonus is applied in ``_reward_and_done`` after the TCP
+        has remained within the success radius for ``success_hold_steps``.
+        This prevents repeated, non-consecutive threshold crossings from
+        earning more reward than actually completing the task.
+        """
+        c = self.cfg
+        qvel = self.data.qvel[self._vadr]
+        action_delta = action - self._prev_action
+
+        r_dist = -c.w_dist * dist
+        r_near = c.w_near_v2 * np.exp(-(dist / c.near_scale))
+        r_ctrl = -c.w_ctrl * float(np.sum(action**2))
+        r_action_rate = -c.w_action_rate * float(np.sum(action_delta**2))
+        r_vel = -c.w_vel * float(np.sum(qvel**2))
+
+        reward = r_dist + r_near + r_ctrl + r_action_rate + r_vel
+        within_threshold = dist < c.success_threshold
+        return reward, within_threshold
+
     def _reward_and_done(self, action):
         dist = self._distance()
-        reward, success = self._reach_reward(dist, action)
+        reward, within_threshold = self._reach_reward(dist, action)
         # 连续成功计数，失败时归零
-        self._success_count = self._success_count + 1 if success else 0
+        self._success_count = self._success_count + 1 if within_threshold else 0
         # success_hold_steps要求模型在进入成功区域后必须保持住，否则会存在随机性
         terminated = self._success_count >= self.cfg.success_hold_steps
-        return reward, terminated, self._get_info(success)
+        if self.cfg.reward_type == "revised_v2" and terminated:
+            reward += self.cfg.success_bonus_v2
+        return reward, terminated, self._get_info(
+            is_success=terminated,
+            within_threshold=within_threshold,
+        )
 
-    def _get_info(self, success: bool | None = None) -> dict:
+    def _get_info(
+        self,
+        is_success: bool | None = None,
+        within_threshold: bool | None = None,
+    ) -> dict:
         dist = self._distance()
-        if success is None:
-            success = dist < self.cfg.success_threshold
-        return {"dist": dist, "is_success": bool(success),
-                "tcp": self._tcp(), "target": self._target()}
+        if within_threshold is None:
+            within_threshold = dist < self.cfg.success_threshold
+        if is_success is None:
+            is_success = self._success_count >= self.cfg.success_hold_steps
+        return {
+            "dist": dist,
+            "is_success": bool(is_success),
+            "within_threshold": bool(within_threshold),
+            "success_hold_count": int(self._success_count),
+            "tcp": self._tcp(),
+            "target": self._target(),
+        }

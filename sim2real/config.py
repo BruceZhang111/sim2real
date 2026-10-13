@@ -87,14 +87,16 @@ class EnvConfig:
                                         # (blew up) -> end the episode with a penalty
 
     # --- reward weights ---
-    reward_type: str = "revised"       # "origin" | "revised"
+    reward_type: str = "revised"       # "origin" | "revised" | "revised_v2"
     w_dist: float = 1.0                 # -w_dist * ||tcp - target||
     w_near: float = 0.4                 # +w_near * exp(-dist / near_scale)
+    w_near_v2: float = 0.1              # weaker proximity bonus for revised_v2
     near_scale: float = 0.05
     w_ctrl: float = 0.01                # -w_ctrl * ||action||^2
     w_action_rate: float = 0.005        # -w_action_rate * ||action_t-action_(t-1)||^2
     w_vel: float = 0.0015               # -w_vel * ||qvel||^2  (smoothness)
     success_bonus: float = 5.0
+    success_bonus_v2: float = 20.0      # one-time terminal bonus for revised_v2
 
     # --- pick-and-place task (ignored by the reach task) ---
     # NOTE: this task puts the cup pose in the observation, which the real arm
