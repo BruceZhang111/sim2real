@@ -2,6 +2,7 @@
 
 Usage
 -----
+    训练效果跟n envs有关
     python -m sim2real.train --config configs/reach.yaml --reward-type origin --n-envs 4
     python -m sim2real.train --config configs/reach.yaml --reward-type revised --n-envs 4
     python -m sim2real.train --config configs/reach.yaml --device cpu
@@ -9,6 +10,7 @@ Usage
     python -m sim2real.train --config configs/reach.yaml --timesteps 50000 --n-envs 4
     python -m sim2real.train --smoke      # tiny run to verify the pipeline
 
+    
 A run directory ``outputs/<run_name>/`` is created containing tensorboard logs,
 periodic checkpoints, the best model, the final model, the VecNormalize stats
 (needed at deploy time) and a snapshot of the exact config used.

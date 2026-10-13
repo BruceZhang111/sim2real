@@ -76,12 +76,10 @@ def make_training_venv(cfg: Config):
     # 向量环境同时管理多个环境
     from stable_baselines3.common.env_util import make_vec_env
     # make_vec_env 负责批量创建环境，并为每个环境添加 Monitor 等标准组件
-    from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
-    # DummyVecEnv  在当前进程中依次执行多个环境
-    # SubprocVecEnv 把环境分配到不同子进程
-
+    from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+    # DummyVecEnv 在当前进程中顺序执行多个环境，避免多进程复制带来的内存开销
     n = cfg.train.n_envs
-    vec_cls = SubprocVecEnv if n > 1 else DummyVecEnv
+    vec_cls = DummyVecEnv
     venv = make_vec_env(
         make_single_env(cfg, randomize=True),
         n_envs=n,

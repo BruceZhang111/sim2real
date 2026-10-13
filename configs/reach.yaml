@@ -21,6 +21,7 @@ env:
   - 0.22
   - 0.32
   success_threshold: 0.02
+  # Legacy compatibility only; reach success uses distance + hold steps.
   success_vel_threshold: 0.1
   success_hold_steps: 10
   init_qpos: null

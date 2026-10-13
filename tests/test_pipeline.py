@@ -86,6 +86,36 @@ def test_reward_prefers_closer():
     assert r_near > r_far
 
 
+def test_revised_reward_keeps_geometric_success_signal_at_speed():
+    """Smoothness must not hide the reach bonus behind a velocity gate."""
+    u = make(
+        reward_type="revised",
+        success_threshold=0.02,
+        success_vel_threshold=0.1,
+    ).unwrapped
+    u.reset(seed=0)
+    u.data.qvel[u._vadr] = 1.0  # deliberately above the legacy speed gate
+
+    inside_reward, inside_success = u._reach_reward(0.019, np.zeros(5))
+    outside_reward, outside_success = u._reach_reward(0.021, np.zeros(5))
+
+    assert inside_success
+    assert not outside_success
+    assert inside_reward - outside_reward > 0.9 * u.cfg.success_bonus
+    u.close()
+
+
+def test_revised_reward_penalizes_action_changes():
+    u = make(reward_type="revised", w_action_rate=0.5).unwrapped
+    u.reset(seed=0)
+    u.data.qvel[u._vadr] = 0.0
+    u._prev_action = np.zeros(5)
+    steady_reward, _ = u._reach_reward(0.1, np.zeros(5))
+    changed_reward, _ = u._reach_reward(0.1, np.ones(5))
+    assert changed_reward < steady_reward
+    u.close()
+
+
 def test_success_when_target_at_tcp():
     env = make(success_threshold=0.05)
     env.reset(seed=1)

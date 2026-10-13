@@ -110,7 +110,12 @@ class SO101ReachEnv(SO101MujocoBase):
     def _reach_reward_revised(
         self, dist: float, action: np.ndarray
     ) -> tuple[float, bool]:
-        """Revised reward with action-rate penalty and low-speed success."""
+        """Revised reward with action-rate smoothing.
+
+        Reaching remains a geometric condition.  Requiring a very low joint
+        speed here makes the sparse success bonus almost impossible to discover
+        and creates a local optimum just outside the success radius.
+        """
         c = self.cfg
         qvel = self.data.qvel[self._vadr]
         action_delta = action - self._prev_action
@@ -123,11 +128,7 @@ class SO101ReachEnv(SO101MujocoBase):
 
         reward = r_dist + r_near + r_ctrl + r_action_rate + r_vel
 
-        joint_speed = float(np.linalg.norm(qvel))
-        success = (
-            dist < c.success_threshold
-            and joint_speed < c.success_vel_threshold
-        )
+        success = dist < c.success_threshold
         if success:
             reward += c.success_bonus
         return reward, success

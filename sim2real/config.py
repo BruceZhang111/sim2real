@@ -66,7 +66,9 @@ class EnvConfig:
     target_low: list[float] = field(default_factory=lambda: [0.12, -0.22, 0.06])
     target_high: list[float] = field(default_factory=lambda: [0.34, 0.22, 0.32])
     success_threshold: float = 0.02     # m; "reached" when TCP within this
-    success_vel_threshold: float = 0.1  # rad/s; low joint speed required for success
+    # Kept so saved configs from the velocity-gated reward still load. Reach
+    # success is intentionally distance-only; success_hold_steps adds stability.
+    success_vel_threshold: float = 0.1
     success_hold_steps: int = 10        # consecutive success steps to terminate
     init_qpos: list[float] | None = None  # home pose; None => zeros
     init_qpos_noise: float = 0.05       # rad uniform noise added to home
