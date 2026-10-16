@@ -1,12 +1,28 @@
 # 项目当前状态
 
-**最后更新：2026-10-13（Asia/Shanghai）**
+**最后更新：2026-10-16（Asia/Shanghai）**
+
+## 当前优先级变更
+
+- 当前首要目标已由继续推进完整 SO-101 sim-to-real 闭环，切换为完成 BDDL 课程 tutorial assignment。
+- 课程主题归入 **Deep learning architectures**，暂定题目为 **Scaling Deep Reinforcement Learning: Why Bigger MLPs Fail and How SimBa Helps**。
+- 核心材料为 Lee et al. 的 ICLR 2025 论文 *SimBa: Simplicity Bias for Scaling Up Parameters in Deep Reinforcement Learning*。成果形式是论文讲解、PPO 架构对比实验和不超过 10 分钟的教学型 slides。
+- 当前仓库继续作为实验平台：使用既有 SO-101 reach、`revised_v2` 奖励、PPO 流水线和评估基础，比较标准 MLP、放大 MLP 与 SimBa。实机部署、pick-and-place 感知和其他 sim-to-real 扩展暂缓，但现有代码与产物必须保留。
+- 课程硬约束：4–6 人一组；2026-10-30 前登记团队信息；2026-11-05 前向课程邮箱提交含团队信息的 slides；第 8 周展示；每组不超过 10 分钟。
 
 ## 本次初始化
 
 - 已确认唯一工作仓库位于 WSL Ubuntu：`/home/brucezhang/Dev/Projects/SO101 Sim2Real/sim2real`；外层 `/home/brucezhang/Dev/Projects/SO101 Sim2Real` 是 VS Code 工作区，不是 Git 根目录。
 - 已基于 README、现有 docs、配置、核心环境/训练代码、测试清单、Git 状态和本轮对话建立 `AGENTS.md`、`PROJECT.md`、`STATUS.md`、`TASKS.md`、`DECISIONS.md`。
 - 本次只新增项目文档，没有修改业务代码、配置、训练产物或正在运行的训练进程。
+
+## 本轮 PPO/SimBa 接口梳理（2026-10-16）
+
+- 已基于当前 WSL 环境中安装的 Stable-Baselines3 2.9.0 源码，逐段核对 `PPO.train()`、`OnPolicyAlgorithm.collect_rollouts()`、`ActorCriticPolicy`、`MlpExtractor`、`DiagGaussianDistribution` 和 `RolloutBuffer` 的数据流。
+- 已确认 `self.policy` 与 `self.rollout_buffer` 是 `PPO` 下的并列对象：神经网络输出由同一个 `ActorCriticPolicy` 实例计算，buffer 只保存 rollout 时的 `old_values`/`old_log_prob` 并计算 GAE advantages 与 returns，不包含神经网络。
+- 已确认 PPO+SimBa 的最小接入边界：保留 `RolloutBuffer`、`collect_rollouts()`、`PPO.train()` 和既有 `evaluate_actions()`；在项目内实现兼容 `MlpExtractor` 接口的 SimBa actor/critic 主干，并用 `ActorCriticPolicy` 薄子类覆写 `_build_mlp_extractor()`。
+- 当前 reach 接口已核对为 observation 26 维、连续 action 5 维；minibatch 中 `evaluate_actions()` 应继续返回 `values (B,1)`、`log_prob (B,)`、`entropy (B,)`。
+- 本轮没有实现 SimBa 代码，没有运行 pytest、smoke、训练或性能实验。SimBa block 的精确结构、RSNorm 与 `VecNormalize` 的组合、optimizer 配置和保存/导出兼容性均为待验证。
 
 ## Git 与运行状态
 
@@ -15,6 +31,7 @@
 - 本次检查开始时运行的命令为：
   `python -m sim2real.train --config configs/reach.yaml --reward-type revised_v2 --n-envs 8`
 - 训练于 2026-10-13 12:27 自然完成 200 万步；最终目录为 `outputs/ppo_reach_20261013_120248-revised_v2`。final/best 模型、最终 checkpoint、评估数组和归一化文件均已核对存在，进程正常退出且没有新的 OOM 记录。
+- SAC revised_v2 的 200 万步训练也已于 2026-10-13 16:08 完成；目录为 `outputs/sac_reach_20261013_144914`，包含 10 万至 200 万步 checkpoint、best/final 模型、`evaluations.npz` 和 `vecnormalize.pkl`。截至 2026-10-14 检查时没有训练进程。该 run 可保留为历史算法对比，但不是当前课程作业的首要实验。
 
 ## 已完成内容
 
@@ -33,8 +50,11 @@
 
 ## 当前正在进行
 
-- `[P0]` 提取 final/best 的成功率、距离、episode length、动作平滑指标并与 origin/revised 同条件比较。
-- `[P1]` 判断 `revised_v2` 是否同时保留 revised 的稳定性并恢复 origin 的成功率；随后进行多 seed 复验。
+- `[P0]` 把课程要求、SimBa 论文主线和本仓库可执行的 PPO 实验整合为课程方案。
+- `[P0]` 明确 10 分钟 tutorial 的中心论点：参数更多并不自动带来更好的深度 RL；带有 simplicity bias 的架构才使规模化有效。
+- `[P1]` 设计标准 MLP、放大 MLP、PPO+SimBa 的控制变量实验，并确定最小可完成的参数规模与 seed 预算。
+- `[P1]` SB3 接入路径已缩小为自定义 `SimBaMlpExtractor` + `ActorCriticPolicy` 薄子类；论文 block 细节、RSNorm 与现有 `VecNormalize` 的关系仍待确认和验证。
+- 原有 revised_v2 final/best、多 seed、DR、ONNX 和实机任务转入保留队列；只保留与课程实验直接相关的评估工作为近期任务。
 
 ## 已有实验结果与分析
 
@@ -50,6 +70,10 @@
 ## 当前阻塞问题
 
 - 当前没有阻止仿真训练继续的代码级 blocker。
+- 课程团队成员、登记状态和组内分工尚未记录；2026-10-30 是最近的外部期限。
+- PPO+SimBa 尚未实现；当前 `sim2real/train.py` 只通过 SB3 `MlpPolicy` 和 `policy_hidden` 构建标准 MLP。
+- 课程实验算力和 seed 预算尚未确定，因此不能直接照搬论文 1024 并行环境、10 亿 environment steps 的 Craftax PPO 设置。
+- 网络内 RSNorm 与环境级 `VecNormalize` 的实验关系尚未决定；若处理不当，会把归一化差异误当成架构收益。
 - `revised_v2` 已完成单 seed 训练，但独立 final/best 评估、动作平滑分项和多 seed 汇总尚未完成，不能据此确定最终方案。
 - reach 实机定量验收阈值、真实机械臂标定值和多 seed 实验预算：**待确认**。
 - pick-and-place 实机依赖外部物体位姿感知，当前尚未接入。
@@ -68,19 +92,21 @@
 - 最新训练是 revised_v2 的 200 万步 run；末次内置评估成功率 `0.90`，最后 10 次评估成功率均值 `0.945`。
 - 最近的完整横向对比仍是 origin 与 revised 的 200 万步训练，结果见上方“已有实验结果与分析”；revised_v2 尚未完成同条件独立横向评估。
 - 最近的受控功能检查是 `revised_v2` 连续保持/一次性奖励语义检查，结果符合预期。
-- 本次文档初始化期间没有运行 pytest、smoke、额外 eval 或 viewer；训练在文档编辑期间自行正常结束。
+- 2026-10-16 本轮仅完成源码级接口核对和文档整理，没有运行 pytest、smoke、额外 eval、viewer 或训练；因此没有新增模型性能结论。
 
 ## 下一步建议
 
-1. 保留已核对齐全的 revised_v2 产物，记录目录改名后的最终路径，避免模型、配置和 VecNormalize 文件失配。
-2. 在不改 PPO 参数的前提下，用与 origin/revised 相同的名义评估设置分析 revised_v2；同时评估 best 和 final，不只看 TensorBoard 平滑曲线。
-3. 增加 reward 分项和动作平滑统计，验证失败轨迹不再从阈值反复进出中获利。
-4. 用多个 seed 重复三种 reward 的训练/评估；先得出 reward 结论，再单独进行 PPO 学习率、epoch、clip/target-KL 调优。
-5. 若 reward 已正确但 PPO 仍不稳，再试验更保守的更新参数；建议值属于待验证候选，不应直接写成结论。
+1. 在 2026-10-30 前确认 4–6 人团队、登记状态和每人的讲解/实验分工。
+2. 把 10 分钟内容压缩为问题、机制、证据、PPO 实践、结论五个部分，先形成逐页提纲和时间预算。
+3. 实现可配置的 `mlp`/`simba` policy architecture；先写结构、参数量和前向传播测试，再做短 smoke run。
+4. 先跑最小实验矩阵：当前 `2×256` MLP、参数量更大的 MLP、参数量可比的 SimBa；固定环境、奖励、训练预算和 seed。
+5. 若最小实验显示清晰趋势，再增加宽度扫描、组件消融和多 seed；不要在课程期限前同时扩展奖励、PPO 超参数和 sim-to-real 部署。
+6. 在 2026-11-05 前完成 slides、图表、引用、团队信息和 10 分钟彩排版本。
 
 ## 当前工作依据的重要假设
 
 - `outputs/` 中的 run 配置快照代表各次实际训练配置，比较时以快照而不是当前 `configs/reach.yaml` 为准。
 - 当前 `revised_v2` 训练没有 warm start，因为命令行未传 `--init-from`。
 - 用户希望保留 8 个环境带来的 rollout 多样性，当前接受用 DummyVecEnv 换取较低内存占用。
+- 课程作业允许选择 **Deep learning architectures**，并允许用 PPO+SimBa 的本项目实践作为教学案例；最终题目仍为暂定，后续可在不改变研究主线的前提下精简措辞。
 - 本文中的历史实验数字来自现有 run、TensorBoard/evaluations 分析和本轮对话；若要用于课程报告，应重新用脚本生成可复现表格。

@@ -54,7 +54,7 @@
 - 原因：revised 的逐步 bonus 会奖励反复进入阈值但未连续保持成功的轨迹；实测失败轨迹可累计很高 bonus，甚至回报高于成功轨迹。
 - 放弃方案：继续每个阈值内 step 支付 5 分；只提高平滑惩罚但保留奖励漏洞；此阶段同时修改 PPO 参数。
 - 影响：reward 数值尺度和 mean reward 的可比性发生变化；需重新训练，并用成功率/距离/平滑度评价，不能只比较 mean reward。
-- 状态：试验中；200 万步训练正在进行，最终效果待确认。
+- 状态：试验中；200 万步训练已完成，独立 final/best、多 seed 和平滑性评估仍待完成。
 
 ## D-007：区分瞬时阈值命中与 episode 成功
 
@@ -91,3 +91,39 @@
 - 放弃方案：只保存训练最终模型；中断后从零开始。
 - 影响：`--init-from` 是 warm start，一次调用的 `--timesteps` 表示本次继续训练的步数，不等于绝对累计步数；恢复时应配套加载 checkpoint 归一化文件。
 - 状态：已采用；best 当前按 mean reward 而非 success rate 选择，后续需改进。
+
+## D-011：将近期主线切换为 BDDL 课程 tutorial assignment
+
+- 日期：2026-10-14
+- 决策：在 2026-11-05 课程 slides 截止前，项目的首要目标改为完成 deep learning architectures 主题的教学型课程成果；现有 SO-101 reach 作为实验平台，完整 sim-to-real、实机和 pick-and-place 扩展暂缓。
+- 原因：课程存在明确团队登记、提交和展示期限；现有仓库已经具备 PPO、可配置 MLP、评估和训练产物管理能力，适合承载架构实验而无需另建项目。
+- 放弃方案：继续把主要时间投入 reward、SAC、DR 和实机闭环，再在截止前临时整理 slides；另建一个与现有实验脱节的课程代码仓库。
+- 影响：近期代码工作只优先处理 SimBa/PPO 所需的架构接口、实验与图表；历史模型和未完成任务保留但降级，不删除产物。
+- 状态：已采用。
+
+## D-012：以 SimBa 解释深度 RL 的架构可扩展性
+
+- 日期：2026-10-14
+- 决策：课程主题归入 **Deep learning architectures**，暂定题目为 **Scaling Deep Reinforcement Learning: Why Bigger MLPs Fail and How SimBa Helps**；核心论文为 Lee et al., *SimBa: Simplicity Bias for Scaling Up Parameters in Deep Reinforcement Learning*（ICLR 2025）。
+- 原因：该主题把网络规模、残差结构、归一化和 simplicity bias 与强化学习实践直接连接；论文同时给出 MLP 扩展失败、SimBa 组件、跨算法结果及 PPO 案例，适合 10 分钟 tutorial。
+- 放弃方案：把主题写成宽泛的 sim-to-real 项目汇报；把 SAC/PPO 算法比较本身当作 deep learning architectures；在当前期限内转向尚无代码基础的 Transformer RL。
+- 影响：slides 的中心论点是“更多参数只有在合适的归纳偏置和架构下才可扩展”，SO-101 实验用于验证这一论点，而不是宣称完整复现论文全部 benchmark。
+- 状态：已采用；最终标题措辞仍可精简。
+
+## D-013：用控制变量的 PPO 架构实验支撑课程结论
+
+- 日期：2026-10-14
+- 决策：最低实验矩阵比较当前 PPO MLP `2×256`、更大的标准 MLP 和 PPO+SimBa；固定 reach 环境、`revised_v2` 奖励、训练步数、seed、并行环境数、评估脚本和指标。优先比较参数量可比的网络，再进行 width scaling 或组件消融。
+- 原因：若同时改变 reward、PPO 超参数、归一化、训练预算和网络结构，无法判断收益是否来自 SimBa。参数量可比与规模扫描分别回答“架构是否更好”和“架构是否更能扩展”。
+- 放弃方案：只比较一次默认 PPO 与一次 SimBa run；直接引用论文的 Craftax 结果作为本项目证据；同时调 reward 与 PPO 超参数追求更高分数。
+- 影响：正式实现前必须区分论文的网络内 RSNorm 与现有环境级 `VecNormalize`，记录参数量、wall-clock 和随机种子，并将单 seed 结果标为探索性结果。
+- 状态：已采用。
+
+## D-014：通过 MlpExtractor 扩展点接入 PPO+SimBa
+
+- 日期：2026-10-16
+- 决策：第一版 PPO+SimBa 保留 SB3 的 `RolloutBuffer`、`OnPolicyAlgorithm.collect_rollouts()`、`PPO.train()`、动作分布和 `ActorCriticPolicy` 公共推理/训练接口；在项目代码内实现兼容 `MlpExtractor` 契约的 SimBa actor/critic 主干，并通过 `ActorCriticPolicy` 薄子类覆写 `_build_mlp_extractor()` 完成接入，不直接修改已安装的 SB3 源码。
+- 原因：当前源码核对表明 buffer 只保存 policy 生成的 rollout 数据并计算 GAE/returns，不拥有神经网络；`forward()`、`evaluate_actions()` 和 `predict_values()` 已通过同一个 `mlp_extractor`、action head 与 value head 保证采样和训练一致。只替换主干可最大限度保持 PPO 算法、数据格式和基线可比性。
+- 放弃方案：为 SimBa 重写 rollout buffer；复制并修改整个 `PPO` 或 `train()`；仅覆写 `evaluate_actions()` 而让 rollout 收集继续使用另一套网络；直接修改虚拟环境的 `site-packages/stable_baselines3`。
+- 影响：新增 extractor 必须提供 `latent_dim_pi`、`latent_dim_vf`、`forward()`、`forward_actor()` 和 `forward_critic()`，并验证 `forward/evaluate_actions/predict_values` 的 shape、梯度、一次 rollout/update、save/load 和导出影响。RSNorm、`VecNormalize`、Adam/AdamW 等不属于本决策的既定结论，仍需论文核对和控制变量实验。
+- 状态：实现边界已采用；SimBa 代码与测试尚未完成。

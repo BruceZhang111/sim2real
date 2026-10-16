@@ -6,6 +6,27 @@
 
 核心原则是仿真与实机的接口等价：仿真动作必须能直接映射为实机命令，策略在仿真中看到的观测必须能由实机传感器、任务输入或相同的正向运动学得到。
 
+## 当前课程作业主线
+
+自 2026-10-14 起，近期工作重心由继续推进完整 sim-to-real 部署，转为完成 BDDL 课程 tutorial assignment。现有 SO-101 reach 环境、PPO 训练流水线和历史实验将作为可复用的实验平台，而不是本阶段的最终叙事目标；实机部署、pick-and-place 感知和大规模 sim-to-real 扩展暂时降为后续工作。
+
+课程主题归入 **Deep learning architectures**，暂定题目为：
+
+> **Scaling Deep Reinforcement Learning: Why Bigger MLPs Fail and How SimBa Helps**
+
+核心论文为 Lee et al., *SimBa: Simplicity Bias for Scaling Up Parameters in Deep Reinforcement Learning*（ICLR 2025，arXiv:2410.09754v2）。课程成果将把论文研究与本仓库中的 PPO 实践结合起来，围绕以下问题组织：
+
+1. 为什么在深度强化学习中直接增大标准 MLP 的参数量可能使性能下降，而不是像 CV/NLP 那样稳定受益于规模化？
+2. simplicity bias 如何刻画网络偏向低复杂度、较易泛化函数的倾向？
+3. SimBa 的 Running Statistics Normalization、pre-LayerNorm residual feedforward block 和 post-LayerNorm 分别解决什么问题？
+4. 在相同 SO-101 reach 环境、奖励、采样预算和评估条件下，PPO+SimBa 是否比同规模或更大的 PPO+MLP 更具样本效率、稳定性和参数可扩展性？
+
+课程实验的最低比较矩阵为：当前 PPO MLP 基线、增大宽度或深度的 PPO MLP、PPO+SimBa。当前基线由 SB3 `MlpPolicy` 和 `policy_hidden=[256, 256]` 构成；SimBa 版本尚未实现。论文在 PPO 实验中采用 actor 1 个 residual block、hidden dim 256，critic 2 个 residual blocks、hidden dim 512，可作为起点，但本项目是否完全复现该设置仍需结合 SB3 策略接口与算力预算验证。
+
+实验必须保持控制变量：固定 reach 环境、`revised_v2` 奖励、训练步数、seed 集合、评估脚本与归一化口径；网络架构和参数规模是主要自变量。比较指标至少包括成功率、最终距离、episode length、sample efficiency、训练稳定性、参数量、训练时间和动作平滑性。SimBa 的网络内 RSNorm 与项目现有环境级 `VecNormalize` 不能直接视为同一机制；正式实现前需要明确二者的组合与消融方式，避免归一化差异污染架构结论。
+
+课程作业要求为 4–6 人一组、展示不超过 10 分钟、2026-10-30 前完成小组信息登记、2026-11-05 前将含团队信息的 slides 发送至 `bddl2017@163.com`，并在本学期第 8 周进行 tutorial presentation。当前阶段的首要交付物是可讲清楚的研究故事、可复现实验和 10 分钟 slides，而不是实机验收。
+
 ## 最终目标
 
 - 建立可复现、可评估、可部署的 SO-101 强化学习训练流水线。

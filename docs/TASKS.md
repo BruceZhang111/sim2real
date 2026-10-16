@@ -2,7 +2,75 @@
 
 状态：`[ ]` 未开始 · `[~]` 进行中 · `[x]` 已完成 · `[!]` 被阻塞
 
-## P0：保护当前实验并得出 reward 结论
+## 当前排序原则
+
+自 2026-10-14 起，课程 tutorial assignment 是唯一 P0 主线。SO-101 sim-to-real 代码、训练产物和历史任务继续保留，但除非直接服务于 PPO+SimBa 实验或课程展示，否则不在 2026-11-05 前扩展。
+
+## P0：确定课程方案与外部期限
+
+- [x] 将课程作业方向写入 `PROJECT.md`、`STATUS.md`、`TASKS.md` 和 `DECISIONS.md`。
+  - 主题分类：Deep learning architectures。
+  - 暂定题目：**Scaling Deep Reinforcement Learning: Why Bigger MLPs Fail and How SimBa Helps**。
+  - 核心论文：Lee et al., *SimBa: Simplicity Bias for Scaling Up Parameters in Deep Reinforcement Learning*，ICLR 2025。
+- [ ] 在 2026-10-30 前确认并登记 4–6 人团队信息。
+  - 待记录：成员、登记状态、论文讲解/代码/实验/制图/slides/演讲分工。
+- [ ] 确认最终英文题目和一句话中心论点。
+  - 验证：题目明确落在 deep learning architectures，而不只是泛泛介绍强化学习。
+- [ ] 在 2026-11-05 前提交一套含团队信息的 slides 至 `bddl2017@163.com`。
+  - 验证：最终文件已发送并留存发送记录；展示时长经彩排不超过 10 分钟。
+
+## P1：形成可教学的 SimBa 研究叙事
+
+- [~] 精读 SimBa，形成“问题—机制—证据—局限”笔记。
+  - 问题：标准 MLP 在深度 RL 中随参数增加可能退化。
+  - 机制：RSNorm、pre-LayerNorm residual feedforward block、post-LayerNorm 共同增强 simplicity bias。
+  - 证据：MLP/SimBa 参数扩展、组件消融、SAC/PPO/METRA 跨算法结果。
+  - 局限：PPO 证据来自 Craftax、1024 并行环境和 10 亿步，不能直接外推到 SO-101 reach。
+- [ ] 用通俗图示解释 simplicity bias 与 Fourier complexity score。
+  - 验证：不依赖公式也能说明“高容量网络为何仍可能偏向简单函数”；公式只作为补充。
+- [ ] 明确论文结论与本项目验证问题的边界。
+  - 验证：slides 不把 SO-101 的小规模结果描述为对论文全部 benchmark 的复现。
+- [ ] 建立参考文献与图片来源清单。
+  - 验证：论文主张、图表和对比方法均可追溯，引用格式统一。
+
+## P2：在 SO-101 reach 中实现 PPO+SimBa
+
+- [x] 确认 PPO+SimBa 的最小接入边界。
+  - 已验证：`self.policy` 与 `self.rollout_buffer` 是独立对象；buffer 不包含神经网络，`old_values`/`old_log_prob` 来自 rollout 时同一个 policy 实例的输出。
+  - 已决策：保留 `RolloutBuffer`、`collect_rollouts()`、`PPO.train()` 和既有 `evaluate_actions()`，通过兼容 `MlpExtractor` 接口的 `SimBaMlpExtractor` 与 `ActorCriticPolicy._build_mlp_extractor()` 接入。
+  - 边界：此项只表示源码接口和实现位置已经核对，不表示 SimBa 网络已经实现或通过训练验证。
+- [ ] 设计可配置的 policy architecture 接口。
+  - 候选配置：`policy_arch: mlp|simba`，并分别记录 actor/critic block 数、hidden dim、归一化和参数量。
+  - 验证：未知架构或未知字段明确报错；旧配置仍可复现当前 SB3 `MlpPolicy` 行为。
+- [ ] 明确 RSNorm 与现有 `VecNormalize` 的关系并记录决策。
+  - 最低要求：区分网络内 running-stat normalization 与环境 wrapper；设计保持输入归一化一致的主比较及必要消融。
+- [ ] 实现 SimBa actor/critic 网络。
+  - 论文起点：actor 1 block/256 hidden，critic 2 blocks/512 hidden，pre-LN residual block、4× inverted bottleneck、ReLU、post-LN。
+  - 验证：前向形状、动作范围、梯度、保存/加载、评估和 ONNX 影响均有针对性检查。
+- [ ] 建立最小架构比较矩阵。
+  - A：当前 PPO MLP `2×256`。
+  - B：参数量更大的标准 MLP，用于验证“bigger MLP”是否退化。
+  - C：参数量可比或更大的 PPO+SimBa。
+  - 控制变量：同一 reach 环境、`revised_v2`、训练步数、seed、`n_envs`、评估条件和归一化口径。
+- [ ] 先运行短 smoke/小预算实验，再决定正式规模。
+  - 验证：训练无 NaN/OOM，checkpoint、VecNormalize、评估数组和参数统计完整。
+- [ ] 运行正式多 seed 实验并生成课程图表。
+  - 指标：success rate、final distance、episode length、sample efficiency、训练方差、参数量、wall-clock、动作差分与关节速度。
+  - 最低输出：原始 CSV/NPZ、均值与置信区间、学习曲线、参数量—性能图和失败案例。
+- [ ] 若时间允许，进行架构组件消融或宽度扫描。
+  - 优先级：MLP width scaling > 去除 residual/pre-LN/post-LN 的最小消融 > 更大规模训练。
+
+## P3：制作并交付 10 分钟 tutorial
+
+- [ ] 完成逐页提纲与时间预算。
+  - 建议结构：背景 1 分钟、问题与 simplicity bias 2 分钟、SimBa 架构 2 分钟、论文证据 2 分钟、PPO 实践 2 分钟、局限与结论 1 分钟。
+- [ ] 完成第一版 slides。
+  - 必含：团队信息、背景与动机、方法/模型、应用或实验、结论和引用。
+- [ ] 将本项目实验图替换占位图，并加入公平比较说明。
+- [ ] 至少完成两轮 10 分钟彩排和一次问答准备。
+- [ ] 提交最终 slides 并准备第 8 周展示版本。
+
+## 暂缓 A：原 reward 结论任务
 
 - [x] 建立项目级 `AGENTS.md` 和 `docs/{PROJECT,STATUS,TASKS,DECISIONS}.md`。
   - 验证：文件位于 WSL Git 根目录且 `git status` 可见；业务代码 diff 不因本任务改变。
@@ -20,7 +88,7 @@
   - 依赖：revised_v2 评估轨迹可采集。
   - 验证：成功 bonus 每 episode 最多一次；失败 episode 无 terminal bonus；报告 reward 分项、阈值内步数、最长连续保持、动作差分和关节速度。
 
-## P1：提高实验可信度
+## 暂缓 B：原实验可信度任务
 
 - [ ] 为 `revised_v2` 增加单元测试。
   - 覆盖：前 9 个连续达标步不终止且 `is_success=False`；第 10 步终止并只加一次 bonus；离开阈值时计数清零；失败轨迹不获得 terminal bonus。
@@ -37,8 +105,11 @@
 - [ ] 更新 README 中测试数量或取消易过时的硬编码数字。
   - 验证：README 与实际收集到的测试一致。
 
-## P2：在 reward 固定后调 PPO
+## 暂缓 C：原 SAC 对比与 PPO 调参
 
+- [x] 建立 SAC reach 的 revised_v2 训练基线。
+  - 配置：`configs/sac_reach.yaml`，与 PPO 使用相同环境、reward、seed、`n_envs=8` 和 200 万 environment timesteps；保留 SAC 的 replay buffer、learning starts、train frequency 与 tau。
+  - 结果：`outputs/sac_reach_20261013_144914` 已生成 200 万步 checkpoint、best/final、评估数组和 VecNormalize；独立 nominal/DR、final/best 和平滑性评估仍未完成。
 - [ ] 先建立不改变 reward 的 PPO 基线，然后一次只改变一组超参数。
   - 依赖：P0/P1 的 reward 结论稳定。
   - 关注：`approx_kl`、`clip_fraction`、entropy、policy std、success rate。
@@ -50,7 +121,7 @@
 - [ ] 明确 WSL 资源策略。
   - 待确认：是否通过 Windows 用户目录中的 `.wslconfig` 提高 memory/swap；修改前先核对主机可用内存并避免挤压 Windows。
 
-## P3：sim-to-real 验证
+## 暂缓 D：sim-to-real 验证
 
 - [ ] 对候选 reach 模型执行 domain-randomized evaluation。
   - 依赖：选择稳定的名义动力学候选模型。
@@ -65,12 +136,11 @@
 - [!] 完成 pick-and-place 实机闭环。
   - 阻塞：杯体位姿感知尚未接入。
 
-## P4：课程大作业与前沿算法
+## 暂缓 E：其他课程算法扩展
 
-- [ ] 明确课程评分要求、截止日期、报告/演讲格式和可用算力。
-  - 验证：形成一页实验约束说明。
-- [ ] 选择一项与深度学习强相关、能在本项目中形成公平实验的前沿方向。
-  - 候选：Transformer/sequence-model policy、Decision Transformer 类离线 RL，或现代 model-based RL；具体算法及 2025–2026 论文待检索确认。
+- [x] 选择一项与深度学习架构强相关、能在本项目中形成公平实验的方向。
+  - 选择：SimBa + PPO，主题聚焦 MLP 参数扩展、simplicity bias 与可扩展 RL 架构。
+- [ ] 仅在 SimBa 主线完成后评估 Transformer、Decision Transformer 或 model-based RL 是否需要作为补充相关工作。
 - [ ] 先构建最小可比较接口，再实现算法。
   - 验证：新方法复用同一 env、观测、动作、seed 和 eval 指标；pipeline 变化与算法变化分开记录。
 - [ ] 形成课程交付物。
