@@ -127,3 +127,12 @@
 - 放弃方案：为 SimBa 重写 rollout buffer；复制并修改整个 `PPO` 或 `train()`；仅覆写 `evaluate_actions()` 而让 rollout 收集继续使用另一套网络；直接修改虚拟环境的 `site-packages/stable_baselines3`。
 - 影响：新增 extractor 必须提供 `latent_dim_pi`、`latent_dim_vf`、`forward()`、`forward_actor()` 和 `forward_critic()`，并验证 `forward/evaluate_actions/predict_values` 的 shape、梯度、一次 rollout/update、save/load 和导出影响。RSNorm、`VecNormalize`、Adam/AdamW 等不属于本决策的既定结论，仍需论文核对和控制变量实验。
 - 状态：实现边界已采用；SimBa 代码与测试尚未完成。
+
+## D-015：将 Fourier simplicity score 作为代理指标而非因果结论
+
+- 日期：2026-10-16
+- 决策：课程讲解、项目文档和后续实验报告必须把论文的 Fourier simplicity score 表述为“固定输入域与初始化协议下的低频函数倾向代理”。分别报告初始化阶段的 simplicity score、训练后的策略/价值函数行为和任务性能，不把二者的相关趋势写成已证明的因果关系。
+- 原因：论文 Figure 4(a) 在二维合成输入网格上对未训练网络的 100 次随机初始化做 Fourier 分析，Figure 4(b) 则来自训练后的 DMC-Hard return；高频只是函数性质之一，且指标依赖输入坐标、尺度、采样域和 Fourier 定义。Residual、LayerNorm 与 RSNorm 还可能通过梯度传播、特征尺度和优化稳定性改善性能，不能把全部收益唯一归因于 simplicity bias。
+- 放弃方案：把低频等同于普适意义上的简单；声称 SimBa 首次提出 RSNorm、残差连接或 LayerNorm；仅凭 Figure 4 的并列趋势宣称 simplicity bias 已被证明导致更高 return。
+- 影响：slides 应明确区分“已有组件”“新组合与实验贡献”“作者解释”和“项目待验证假设”。SO-101 实验除任务回报外，还应在固定输入尺度下报告动作平滑性、扰动敏感性及必要的频率指标；是否复现论文 simplicity score 尚未决定。
+- 状态：已采用为课程叙事与实验解释口径；不表示 SO-101 上的 SimBa 性能已经验证。

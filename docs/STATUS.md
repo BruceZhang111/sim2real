@@ -24,6 +24,16 @@
 - 当前 reach 接口已核对为 observation 26 维、连续 action 5 维；minibatch 中 `evaluate_actions()` 应继续返回 `values (B,1)`、`log_prob (B,)`、`entropy (B,)`。
 - 本轮没有实现 SimBa 代码，没有运行 pytest、smoke、训练或性能实验。SimBa block 的精确结构、RSNorm 与 `VecNormalize` 的组合、optimizer 配置和保存/导出兼容性均为待验证。
 
+## 本轮 SimBa 原论文精读与现有归一化核对（2026-10-16）
+
+- 已精读并讨论原论文 Section 2.1、2.2、4 和 5.1 中与函数复杂度、simplicity bias score、RSNorm、residual feedforward block、pre/post LayerNorm 及组件分析直接相关的内容。
+- 已明确论文的 simplicity score 是初始化阶段的代理指标：在固定二维输入网格上对未训练网络做 Fourier 分析，并对 100 次随机初始化取平均；它衡量低频倾向，不等同于普适的函数复杂度，也不能单独证明 simplicity bias 导致训练回报提升。
+- 已明确 SimBa 的单个组件并非全新算子。RSNorm 的运行均值/方差递推属于既有在线统计方法；论文的主要贡献应表述为面向深度 RL 参数扩展的组件组合、实验验证和 simplicity-bias 解释，而不是首次提出 observation normalization、残差连接或 LayerNorm。
+- 已只读核对当前 SB3 2.9.0 与项目接线：reach 原始 observation 为 `qpos/qvel/TCP/target/target-TCP/last_action`，训练时由环境外层 `VecNormalize` 对每一维维护跨 episode、跨 8 个逻辑环境的全局 running mean/variance，并在每个 reset/step 应用标准化和 `[-10, 10]` 裁剪；评估时统计量冻结并从训练环境同步或从 `vecnormalize.pkl` 加载。
+- 当前 reward normalization 使用折扣回报 `G_t = gamma G_(t-1) + r_t` 的运行方差缩放单步奖励，`gamma=0.98`，不减 reward 均值；评估时关闭 reward normalization。当前 action 仅采用固定 `[-1, 1]` 坐标和 delta 模式下 `0.1 rad` 线性缩放，不属于 running-statistics normalization。
+- 现有 observation `VecNormalize` 与论文 RSNorm 在数学目的上同类，但工程位置不同：前者是 policy 外部环境 wrapper，后者是 SimBa 网络入口组件。是否保留二者、移除其一或设置消融尚未决定；直接叠加会形成双重 observation normalization，正式实现前必须先固定公平比较方案。
+- 本轮没有修改业务代码，没有运行 pytest、`make smoke`、训练或性能评估；上述结论来自原论文、当前项目代码、当前安装的 SB3 2.9.0 源码和配置的只读核对。
+
 ## Git 与运行状态
 
 - 分支：`main`，跟踪 `origin/main`。
@@ -53,7 +63,7 @@
 - `[P0]` 把课程要求、SimBa 论文主线和本仓库可执行的 PPO 实验整合为课程方案。
 - `[P0]` 明确 10 分钟 tutorial 的中心论点：参数更多并不自动带来更好的深度 RL；带有 simplicity bias 的架构才使规模化有效。
 - `[P1]` 设计标准 MLP、放大 MLP、PPO+SimBa 的控制变量实验，并确定最小可完成的参数规模与 seed 预算。
-- `[P1]` SB3 接入路径已缩小为自定义 `SimBaMlpExtractor` + `ActorCriticPolicy` 薄子类；论文 block 细节、RSNorm 与现有 `VecNormalize` 的关系仍待确认和验证。
+- `[P1]` SB3 接入路径已缩小为自定义 `SimBaMlpExtractor` + `ActorCriticPolicy` 薄子类；论文 block 结构和当前归一化接线已核对，RSNorm/`VecNormalize` 的主比较与消融方案仍待决定，网络实现和训练效果仍待验证。
 - 原有 revised_v2 final/best、多 seed、DR、ONNX 和实机任务转入保留队列；只保留与课程实验直接相关的评估工作为近期任务。
 
 ## 已有实验结果与分析
@@ -73,7 +83,7 @@
 - 课程团队成员、登记状态和组内分工尚未记录；2026-10-30 是最近的外部期限。
 - PPO+SimBa 尚未实现；当前 `sim2real/train.py` 只通过 SB3 `MlpPolicy` 和 `policy_hidden` 构建标准 MLP。
 - 课程实验算力和 seed 预算尚未确定，因此不能直接照搬论文 1024 并行环境、10 亿 environment steps 的 Craftax PPO 设置。
-- 网络内 RSNorm 与环境级 `VecNormalize` 的实验关系尚未决定；若处理不当，会把归一化差异误当成架构收益。
+- 网络内 RSNorm 与环境级 `VecNormalize` 已确认属于同类 observation running-statistics 标准化但位于不同层级；主实验是否保留现有 wrapper、如何避免双重归一化及如何设置消融尚未决定，若处理不当会把归一化差异误当成架构收益。
 - `revised_v2` 已完成单 seed 训练，但独立 final/best 评估、动作平滑分项和多 seed 汇总尚未完成，不能据此确定最终方案。
 - reach 实机定量验收阈值、真实机械臂标定值和多 seed 实验预算：**待确认**。
 - pick-and-place 实机依赖外部物体位姿感知，当前尚未接入。
@@ -92,13 +102,13 @@
 - 最新训练是 revised_v2 的 200 万步 run；末次内置评估成功率 `0.90`，最后 10 次评估成功率均值 `0.945`。
 - 最近的完整横向对比仍是 origin 与 revised 的 200 万步训练，结果见上方“已有实验结果与分析”；revised_v2 尚未完成同条件独立横向评估。
 - 最近的受控功能检查是 `revised_v2` 连续保持/一次性奖励语义检查，结果符合预期。
-- 2026-10-16 本轮仅完成源码级接口核对和文档整理，没有运行 pytest、smoke、额外 eval、viewer 或训练；因此没有新增模型性能结论。
+- 2026-10-16 最近两轮仅完成 SB3 接口核对、SimBa 原论文精读和现有归一化实现的只读检查，没有运行 pytest、smoke、额外 eval、viewer 或训练；因此没有新增模型性能结论。
 
 ## 下一步建议
 
 1. 在 2026-10-30 前确认 4–6 人团队、登记状态和每人的讲解/实验分工。
 2. 把 10 分钟内容压缩为问题、机制、证据、PPO 实践、结论五个部分，先形成逐页提纲和时间预算。
-3. 实现可配置的 `mlp`/`simba` policy architecture；先写结构、参数量和前向传播测试，再做短 smoke run。
+3. 先确定 RSNorm 与现有 `VecNormalize` 的公平比较矩阵，明确主实验是否允许双重 observation normalization；记录决策后再实现可配置的 `mlp`/`simba` policy architecture。
 4. 先跑最小实验矩阵：当前 `2×256` MLP、参数量更大的 MLP、参数量可比的 SimBa；固定环境、奖励、训练预算和 seed。
 5. 若最小实验显示清晰趋势，再增加宽度扫描、组件消融和多 seed；不要在课程期限前同时扩展奖励、PPO 超参数和 sim-to-real 部署。
 6. 在 2026-11-05 前完成 slides、图表、引用、团队信息和 10 分钟彩排版本。

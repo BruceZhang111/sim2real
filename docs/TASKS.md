@@ -26,6 +26,11 @@
   - 机制：RSNorm、pre-LayerNorm residual feedforward block、post-LayerNorm 共同增强 simplicity bias。
   - 证据：MLP/SimBa 参数扩展、组件消融、SAC/PPO/METRA 跨算法结果。
   - 局限：PPO 证据来自 Craftax、1024 并行环境和 10 亿步，不能直接外推到 SO-101 reach。
+- [x] 完成原论文函数复杂度、simplicity bias 测量、SimBa 架构和 Figure 4 组件分析的首轮精读。
+  - 已核对：Fourier complexity 是频率加权平均，simplicity score 是其倒数在随机初始化分布上的期望近似；论文以 90,000 个二维网格点和 100 次随机初始化估计架构的初始化低频倾向。
+  - 已核对：SimBa 主干为 RSNorm、线性嵌入、`d_h -> 4d_h -> d_h` 的 pre-LN residual FFN（ReLU）和 block stack 后的 final LayerNorm。
+  - 已明确边界：低频只是函数复杂度的代理；Figure 4(a) 的未训练初始化 score 与 Figure 4(b) 的训练后 return 是相关性证据，不构成“simplicity bias 导致性能提升”的因果证明。
+  - 已明确叙事：各组件多数已有先例，论文贡献重点是 RL scaling 问题、组合方案和跨任务实验，而非首次发明这些算子。
 - [ ] 用通俗图示解释 simplicity bias 与 Fourier complexity score。
   - 验证：不依赖公式也能说明“高容量网络为何仍可能偏向简单函数”；公式只作为补充。
 - [ ] 明确论文结论与本项目验证问题的边界。
@@ -42,8 +47,11 @@
 - [ ] 设计可配置的 policy architecture 接口。
   - 候选配置：`policy_arch: mlp|simba`，并分别记录 actor/critic block 数、hidden dim、归一化和参数量。
   - 验证：未知架构或未知字段明确报错；旧配置仍可复现当前 SB3 `MlpPolicy` 行为。
-- [ ] 明确 RSNorm 与现有 `VecNormalize` 的关系并记录决策。
-  - 最低要求：区分网络内 running-stat normalization 与环境 wrapper；设计保持输入归一化一致的主比较及必要消融。
+- [~] 明确 RSNorm 与现有 `VecNormalize` 的关系并记录决策。
+  - 已核对：当前 reach 使用 SB3 2.9.0 `VecNormalize`；observation 在每个 reset/step 逐维标准化，统计量跨 episode 和 8 个逻辑环境累计，训练时更新、评估时冻结，输出裁剪到 `[-10, 10]`。
+  - 已核对：reward 使用折扣回报方差进行缩放且不减均值；action 是 `[-1, 1]` 固定坐标到 `0.1 rad` delta 的线性映射，后二者都不是 SimBa RSNorm。
+  - 待决定：主比较采用现有 `VecNormalize`、网络内 RSNorm 或二者的哪种组合；需要避免未经说明的双重 observation normalization，并设置必要消融。
+  - 完成标准：将最终主比较和消融方案写入 `DECISIONS.md`，旧 MLP 基线与 SimBa 的输入尺度保持可解释和可复现。
 - [ ] 实现 SimBa actor/critic 网络。
   - 论文起点：actor 1 block/256 hidden，critic 2 blocks/512 hidden，pre-LN residual block、4× inverted bottleneck、ReLU、post-LN。
   - 验证：前向形状、动作范围、梯度、保存/加载、评估和 ONNX 影响均有针对性检查。
