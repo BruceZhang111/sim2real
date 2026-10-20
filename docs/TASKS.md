@@ -179,3 +179,41 @@
   - 验证：新方法复用同一 env、观测、动作、seed 和 eval 指标；pipeline 变化与算法变化分开记录。
 - [ ] 形成课程交付物。
   - 验证：论文综述、方法图、可复现实验配置、结果表/曲线、失败分析和现场演示材料齐全。
+
+## Server migration checklist update (2026-10-20)
+
+- [x] Capture local pip/conda/runtime inventories and correct direct dependency declarations.
+- [x] Confirm with user that 3389 is the administrator-provided SSH port.
+- [ ] Complete interactive SSH login and verify host fingerprint.
+- [ ] Inspect server OS/GPU/driver/storage and scheduler policy.
+- [ ] Confirm destination, synchronize code/assets/selected outputs, rebuild environment and verify imports/smoke.
+- [ ] Record server environment and measure training throughput.
+
+## VS Code and uv workflow (2026-10-20)
+
+- [x] Record VS Code Remote-SSH GUI and uv workflow preference.
+- [ ] Complete VS Code SSH login; inspect server resources.
+- [ ] Configure project uv/PyTorch sources, lock dependencies against the recorded baseline, sync and validate the remote .venv.
+
+## Local-to-server Git workflow (2026-10-20)
+
+- [x] Verify existing GitHub origin and tracked XML/STL assets; document local-only AI development and Linux execution checkout.
+- [ ] Connect via VS Code SSH; inspect resources, destination, GitHub access and scheduling policy.
+- [ ] Prepare and validate uv metadata/lock locally against captured versions and server driver.
+- [ ] Review/commit/push local changes, clone on server and compare commit SHA.
+- [ ] Configure fast-forward-only pull and validate locked uv sync, GPU/MuJoCo and smoke.
+- [ ] Arrange persistent/scheduled training and separate outputs transfer.
+
+## Server inspection progress (2026-10-20)
+
+- [x] User completed VS Code SSH login and supplied Linux/resource/tool inspection.
+- [x] Record Ubuntu 22.04.2, driver 525.147.05, two busy 24 GiB GPUs; uv absent from PATH.
+- [ ] Confirm exact GPU/CPU, project directory/quota, GPU allocation policy and GitHub access.
+- [ ] Resolve a driver-compatible PyTorch/SB3 stack before local uv lock; CUDA 13 baseline cannot be copied unchanged.
+
+## Git synchronization readiness (2026-10-20)
+
+- [x] User verified exact GPU/CPU, system Python/Git and repository read access from server.
+- [ ] User reviews, commits and pushes local migration preparation in WSL VS Code.
+- [ ] Clone via server VS Code GUI into a confirmed directory; verify matching SHA.
+- [ ] Prepare driver-compatible uv metadata/lock locally and sync server environment.

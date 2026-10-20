@@ -1,0 +1,6 @@
+# Local WSL snapshot; review compatibility before server use.
+name: sim2real
+channels:
+  - defaults
+dependencies:
+  - python=3.11

@@ -44,3 +44,9 @@
 2. 运行与风险匹配且不会干扰现有训练的验证；未运行的检查及原因必须说明。
 3. 业务状态有变化时更新 `docs/STATUS.md`；任务状态变化时更新 `docs/TASKS.md`；形成长期技术取舍时追加 `docs/DECISIONS.md`。
 4. 向用户列出修改文件、验证结果、遗留风险和可执行的下一步；不得把“未验证”描述成“已完成”。
+
+## Local source and server execution
+
+- The user edits source through AI in this local WSL repository. The Linux server is an execution checkout synchronized through Git; do not make source/config/dependency fixes directly on the server.
+- Prepare source, training YAML, uv metadata and lockfile locally, then review/commit/push; server clone/pull consumes that version. Do not update a checkout or its environment while training uses it.
+- Server uv installation, path/resource inspection, artifact transfer and experiment execution are distinct from source development. Server details/access remain subject to verification; do not infer AI access.

@@ -1,0 +1,58 @@
+{
+  "source": "User-pasted output from VS Code SSH terminal; not independently executed by AI",
+  "reported_at": "2026-10-20 14:34:19 Asia/Shanghai (client context)",
+  "user": "zyg",
+  "hostname": "linux",
+  "home": "/home/zyg",
+  "os": "Ubuntu 22.04.2 LTS",
+  "architecture": "x86_64",
+  "nvidia_driver": "525.147.05",
+  "nvidia_smi_cuda_label": "12.0",
+  "gpu_count": 2,
+  "gpu_model": "NVIDIA GeForce RTX 4090",
+  "gpu_total_memory_mib": [
+    24564,
+    24564
+  ],
+  "gpu_used_memory_mib": [
+    16501,
+    18668
+  ],
+  "gpu_utilization_percent": [
+    99,
+    100
+  ],
+  "ram_total_gib": 251,
+  "ram_available_gib": 210,
+  "home_filesystem": "/dev/sda1",
+  "home_free_reported": "6.8T (shared filesystem, user quota unknown)",
+  "tools_in_path": {
+    "git": "/usr/bin/git",
+    "python3": "/usr/bin/python3",
+    "uv": null,
+    "sbatch": null
+  },
+  "caveats": [
+    "CUDA label is driver capability, not proof of installed CUDA toolkit.",
+    "No sbatch in PATH does not establish absence of a scheduler.",
+    "High GPU utilization snapshot does not authorize resource sharing or process termination.",
+    "Destination, quota, GPU allocation policy, package-index access and uv setup remain pending."
+  ],
+  "compatibility": {
+    "local_torch": "2.14.0+cu130",
+    "server_plan": "Do not copy CUDA 13 local torch stack; choose and validate compatible runtime/version without unilateral driver changes.",
+    "reference": "https://docs.nvidia.com/deploy/cuda-compatibility/minor-version-compatibility.html"
+  },
+  "cpu_model": "Intel Xeon Gold 6253CL @ 3.10GHz",
+  "cpu_sockets": 2,
+  "physical_cores": 36,
+  "logical_cpus": 72,
+  "system_python": "3.10.12",
+  "git_version": "2.34.1",
+  "github_read_access": {
+    "result": "git ls-remote HEAD succeeded in user terminal",
+    "head": "4894fb73b3821369fd23aab3427fa88142af5dce"
+  },
+  "project_destination": "pending confirmation",
+  "gpu_allocation_policy": "pending confirmation"
+}

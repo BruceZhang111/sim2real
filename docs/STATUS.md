@@ -203,3 +203,23 @@
 - 用户希望保留 8 个环境带来的 rollout 多样性，当前接受用 DummyVecEnv 换取较低内存占用。
 - 课程作业允许选择 **Deep learning architectures**，并允许用 PPO+SimBa 的本项目实践作为教学案例；最终题目仍为暂定，后续可在不改变研究主线的前提下精简措辞。
 - 本文中的历史实验数字来自现有 run、TensorBoard/evaluations 分析和本轮对话；若要用于课程报告，应重新用脚本生成可复现表格。
+
+## Server migration preparation (2026-10-20)
+
+Captured the actual local environment in docs/environment/wsl-20261020/; pip check passed. Corrected the requirements hardware note and declared torch directly in requirements.txt and pyproject.toml. Administrator-confirmed SSH port: 3389. Server login, OS/GPU/driver, destination, upload and installation remain pending. See docs/MIGRATION.md. No training or remote mutation performed.
+
+## VS Code and uv workflow (2026-10-20)
+
+User selected VS Code Remote-SSH GUI for connection and uv for the server Python environment. Migration guide updated accordingly; server login, uv installation, lockfile and remote environment creation are pending. Local conda and captured inventory remain unchanged.
+
+## Local Git development / Linux execution (2026-10-20)
+
+User confirmed Linux server and local-only AI source editing. Verified existing origin https://github.com/BruceZhang111/sim2real.git and 18 tracked asset files. Selected flow: local WSL edit/check/commit/push -> server clone or fast-forward pull -> locked uv environment sync -> training -> artifact/log return. Rewrote docs/MIGRATION.md and recorded workspace boundaries in AGENTS.md. Server resources, GitHub access, authentication, destination, uv install/lock/sync and training remain pending. Local migration changes are not yet committed/pushed. No server source edits or remote execution performed.
+
+## Authenticated server inspection supplied by user (2026-10-20)
+
+User logged in through VS Code Remote-SSH as zyg@linux; home /home/zyg; Ubuntu 22.04.2 x86_64. NVIDIA driver 525.147.05, two GPUs with 24564 MiB each (exact models truncated), utilization 90%/99% and memory used 17399/19388 MiB at snapshot. RAM available 210 GiB; shared /home free 6.8T, quota unknown. Git/Python3 present; uv/sbatch not found in PATH. No scheduler absence or GPU allocation may be inferred. Local torch 2.14.0+cu130 is not a compatible default for this driver. Keep local environment unchanged; do not upgrade shared driver. Record in docs/environment/server-20261020/inspection.json. Next: exact GPU/CPU models, GPU allocation policy, project path/quota, GitHub access; then choose a compatible PyTorch build and validate dependency constraints before locking. Clone/push/uv installation/training remain pending.
+
+## Server hardware and GitHub access confirmed by user (2026-10-20)
+
+Both GPUs are RTX 4090 (24564 MiB each), currently 99%/100% utilized in the latest supplied snapshot. CPU is dual Xeon Gold 6253CL, 36 physical cores / 72 logical CPUs. System Python 3.10.12; Git 2.34.1. User's server-side git ls-remote succeeded, returning origin HEAD 4894fb73b3821369fd23aab3427fa88142af5dce. This verifies repository read access at that time, not server push access or package-index access. Choose Python 3.11 for the project via uv; preserve system Python. Next: local review/commit/push of migration preparation, remote GUI clone into a confirmed project directory, then locally prepared driver-compatible uv lock and remote validation. uv.lock does not exist yet. GPU allocation and user quota remain unknown; no training started.

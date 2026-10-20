@@ -1,9 +1,14 @@
-# Core sim2real training stack (tested on Python 3.11, CUDA 13 / RTX 4090).
+# Core sim2real dependencies; versions below are compatibility ranges, not a lock.
+# Captured WSL: Python 3.11 / torch 2.14.0+cu130 / RTX 3050 Laptop GPU.
+# See docs/environment/wsl-20261020/ for actual installed versions.
+# Select the server-compatible PyTorch build before installing these requirements.
 # For an editable install with console scripts, prefer:  pip install -e .
 mujoco>=3.2,<4
 gymnasium>=0.29,<2
 numpy>=1.24
 stable-baselines3>=2.3
+# Direct dependency of project policies/export; GPU build is selected per host.
+torch
 pyyaml>=6.0
 onnx>=1.15
 onnxruntime>=1.17

@@ -1,0 +1,319 @@
+[
+  {
+    "name": "absl-py",
+    "version": "2.5.0"
+  },
+  {
+    "name": "ale-py",
+    "version": "0.12.1"
+  },
+  {
+    "name": "cloudpickle",
+    "version": "3.1.2"
+  },
+  {
+    "name": "contourpy",
+    "version": "1.3.3"
+  },
+  {
+    "name": "cuda-bindings",
+    "version": "13.4.1"
+  },
+  {
+    "name": "cuda-pathfinder",
+    "version": "1.8.1"
+  },
+  {
+    "name": "cuda-toolkit",
+    "version": "13.0.3.0"
+  },
+  {
+    "name": "cycler",
+    "version": "0.12.1"
+  },
+  {
+    "name": "etils",
+    "version": "1.14.0"
+  },
+  {
+    "name": "Farama-Notifications",
+    "version": "0.0.6"
+  },
+  {
+    "name": "filelock",
+    "version": "3.32.6"
+  },
+  {
+    "name": "flatbuffers",
+    "version": "25.12.19"
+  },
+  {
+    "name": "fonttools",
+    "version": "4.65.0"
+  },
+  {
+    "name": "fsspec",
+    "version": "2026.7.0"
+  },
+  {
+    "name": "glfw",
+    "version": "2.10.2"
+  },
+  {
+    "name": "grpcio",
+    "version": "1.83.1"
+  },
+  {
+    "name": "gymnasium",
+    "version": "1.3.0"
+  },
+  {
+    "name": "ImageIO",
+    "version": "2.37.4"
+  },
+  {
+    "name": "imageio-ffmpeg",
+    "version": "0.6.0"
+  },
+  {
+    "name": "iniconfig",
+    "version": "2.3.0"
+  },
+  {
+    "name": "Jinja2",
+    "version": "3.1.6"
+  },
+  {
+    "name": "kiwisolver",
+    "version": "1.5.1"
+  },
+  {
+    "name": "Markdown",
+    "version": "3.10.3"
+  },
+  {
+    "name": "markdown-it-py",
+    "version": "4.2.0"
+  },
+  {
+    "name": "MarkupSafe",
+    "version": "3.0.3"
+  },
+  {
+    "name": "matplotlib",
+    "version": "3.11.1"
+  },
+  {
+    "name": "mdurl",
+    "version": "0.1.2"
+  },
+  {
+    "name": "ml_dtypes",
+    "version": "0.6.0"
+  },
+  {
+    "name": "mpmath",
+    "version": "1.3.0"
+  },
+  {
+    "name": "mujoco",
+    "version": "3.13.0"
+  },
+  {
+    "name": "networkx",
+    "version": "3.6.1"
+  },
+  {
+    "name": "numpy",
+    "version": "2.4.6"
+  },
+  {
+    "name": "nvidia-cublas",
+    "version": "13.1.1.3"
+  },
+  {
+    "name": "nvidia-cuda-cupti",
+    "version": "13.0.85"
+  },
+  {
+    "name": "nvidia-cuda-nvrtc",
+    "version": "13.0.88"
+  },
+  {
+    "name": "nvidia-cuda-runtime",
+    "version": "13.0.96"
+  },
+  {
+    "name": "nvidia-cudnn-cu13",
+    "version": "9.24.0.43"
+  },
+  {
+    "name": "nvidia-cufft",
+    "version": "12.0.0.61"
+  },
+  {
+    "name": "nvidia-cufile",
+    "version": "1.15.1.6"
+  },
+  {
+    "name": "nvidia-curand",
+    "version": "10.4.0.35"
+  },
+  {
+    "name": "nvidia-cusolver",
+    "version": "12.0.4.66"
+  },
+  {
+    "name": "nvidia-cusparse",
+    "version": "12.6.3.3"
+  },
+  {
+    "name": "nvidia-cusparselt-cu13",
+    "version": "0.8.1"
+  },
+  {
+    "name": "nvidia-nccl-cu13",
+    "version": "2.30.7"
+  },
+  {
+    "name": "nvidia-nvjitlink",
+    "version": "13.4.52"
+  },
+  {
+    "name": "nvidia-nvshmem-cu13",
+    "version": "3.4.5"
+  },
+  {
+    "name": "nvidia-nvtx",
+    "version": "13.0.85"
+  },
+  {
+    "name": "onnx",
+    "version": "1.22.0"
+  },
+  {
+    "name": "onnxruntime",
+    "version": "1.30.0"
+  },
+  {
+    "name": "opencv-python",
+    "version": "5.0.0.93"
+  },
+  {
+    "name": "packaging",
+    "version": "26.0"
+  },
+  {
+    "name": "pandas",
+    "version": "3.0.5"
+  },
+  {
+    "name": "pillow",
+    "version": "12.3.0"
+  },
+  {
+    "name": "pip",
+    "version": "26.2.1"
+  },
+  {
+    "name": "pluggy",
+    "version": "1.6.0"
+  },
+  {
+    "name": "protobuf",
+    "version": "7.36.1"
+  },
+  {
+    "name": "psutil",
+    "version": "7.2.2"
+  },
+  {
+    "name": "pygame-ce",
+    "version": "2.5.8"
+  },
+  {
+    "name": "Pygments",
+    "version": "2.21.0"
+  },
+  {
+    "name": "PyOpenGL",
+    "version": "3.1.10"
+  },
+  {
+    "name": "pyparsing",
+    "version": "3.3.2"
+  },
+  {
+    "name": "pytest",
+    "version": "9.1.1"
+  },
+  {
+    "name": "python-dateutil",
+    "version": "2.9.0.post0"
+  },
+  {
+    "name": "PyYAML",
+    "version": "6.0.3"
+  },
+  {
+    "name": "rich",
+    "version": "15.0.0"
+  },
+  {
+    "name": "setuptools",
+    "version": "83.0.0"
+  },
+  {
+    "name": "six",
+    "version": "1.17.0"
+  },
+  {
+    "name": "so101-sim2real",
+    "version": "0.1.0",
+    "editable_project_location": "/home/brucezhang/Dev/Projects/SO101 Sim2Real/sim2real"
+  },
+  {
+    "name": "stable_baselines3",
+    "version": "2.9.0"
+  },
+  {
+    "name": "sympy",
+    "version": "1.14.0"
+  },
+  {
+    "name": "tensorboard",
+    "version": "2.21.0"
+  },
+  {
+    "name": "tensorboard-data-server",
+    "version": "0.7.2"
+  },
+  {
+    "name": "torch",
+    "version": "2.14.0"
+  },
+  {
+    "name": "tqdm",
+    "version": "4.70.0"
+  },
+  {
+    "name": "triton",
+    "version": "3.8.0"
+  },
+  {
+    "name": "typing_extensions",
+    "version": "4.16.0"
+  },
+  {
+    "name": "Werkzeug",
+    "version": "3.1.8"
+  },
+  {
+    "name": "wheel",
+    "version": "0.47.0"
+  },
+  {
+    "name": "zipp",
+    "version": "4.1.0"
+  }
+]
