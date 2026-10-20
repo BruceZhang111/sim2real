@@ -6,6 +6,18 @@
 
 自 2026-10-14 起，课程 tutorial assignment 是唯一 P0 主线。SO-101 sim-to-real 代码、训练产物和历史任务继续保留，但除非直接服务于 PPO+SimBa 实验或课程展示，否则不在 2026-11-05 前扩展。
 
+## 下一轮优先：critic 1024 对照与服务器执行环境（2026-10-20）
+
+- [x] 核验当前 YAML 为 actor 128 / critic 1024、blocks 1/2；配置可加载。此项仅表示配置核验，不代表训练完成。
+- [ ] 整理 actor 128 / critic 512 的固定 seed、final nominal/DR 基线；用户反馈效果改善，内置名义结果已核验，DR 结论仍待验证。
+- [ ] 固定 actor 128、blocks 1/2、seed、18 envs、KL 0.33、lr 3e-4、epochs 18 等条件，仅改变 critic 512→1024；核对资源后训练并保存独立标签/配置。性能、显存/内存和耗时均待验证。
+- [ ] 收集服务器连接信息（地址/端口/用户名、VPN/跳板机、认证方式）、OS、CPU/GPU/驱动、磁盘、权限和调度规则；不在聊天中收集密码/私钥。
+- [ ] 指导 WSL SSH 初次连接、确认主机指纹和密钥权限；未实际连接，不得标记完成。
+- [ ] 清点本地代码提交、资产、依赖与可选模型产物；制定首次上传和 Git 后续同步流程。outputs/环境/权重受 ignore 影响，不能声称一次 clone 就完整复刻。
+- [ ] 导出完整环境清单，按服务器系统及 CUDA 兼容性重建/迁移；验证同一代码 SHA、import、headless MuJoCo、小型 smoke 和设备选择，再安排正式训练。
+- [ ] 按服务器规则选择 tmux/任务调度器，指导日志查看、断线保持、TensorBoard SSH 隧道和产物回传；所有路径与端口待确认，不擅自暴露公网端口。
+- [ ] 记录 CPU 环境 step 和 GPU 更新耗时，确认服务器实际提速；不盲目改 DummyVecEnv/环境数量污染 width 对照。
+
 ## P0：确定课程方案与外部期限
 
 - [x] 将课程作业方向写入 `PROJECT.md`、`STATUS.md`、`TASKS.md` 和 `DECISIONS.md`。
@@ -41,9 +53,11 @@
 ## P2：在 SO-101 reach 中实现 PPO+SimBa
 
 - [x] 准备 actor width 单因素消融：`reach_forSimBa.yaml` actor 256→128，critic 512、blocks 1/2 和其他训练条件不变；不修改既有预算批次快照。
-- [ ] 在相同预算和评估条件下比较 actor 128 / 256 的名义与随机化性能，再决定是否单独扩大 critic width。
+- [~] 比较 actor 128 / 256：`ppo_reach_20261020_104421-actor128-critic512` 最近 10 次内置名义成功率 0.98，旧 256/512、KL 0.33 为 0.925；已核验原始数组。固定 eval seed 的 final nominal/DR 与多 seed 仍待验证。
 - [x] 增加训练预算自动化脚本：冻结同一配置，串行从头运行 200 万、300 万、500 万步，支持无副作用预览、失败/中断停止后续实验。
-- [ ] 执行训练预算实验并比较随机化环境表现；脚本已提供，本轮未启动训练。
+- [x] 核验预算批次三个 run 均达到目标：final 保存步数分别为 2,009,088 / 3,004,416 / 5,004,288；共享配置为 256/512、18 envs、KL 0.33。只读核验，不是本次重新训练。
+- [ ] 对上述 200/300/500 万步 run 用配对归一化文件和固定 eval seed 汇总 nominal/DR，判断延长预算是否有效；尚无涌现或普遍泛化结论。
+- [x] 核对 `TrainConfig.target_kl` 与 `PPO(target_kl=cfg.train.target_kl)` 的源码接线；默认 None，不与 clip_range 混淆。
 - [x] 为训练入口增加 `--addname`，在新 run 目录名称末尾追加实验标签；参数只影响后续启动的训练。
 - [x] 确认 PPO+SimBa 的最小接入边界。
   - 已验证：`self.policy` 与 `self.rollout_buffer` 是独立对象；buffer 不包含神经网络，`old_values`/`old_log_prob` 来自 rollout 时同一个 policy 实例的输出。
@@ -57,6 +71,7 @@
   - 已核对：reward 使用折扣回报方差进行缩放且不减均值；action 是 `[-1, 1]` 固定坐标到 `0.1 rad` delta 的线性映射，后二者都不是 SimBa RSNorm。
   - 已决定：主比较统一保留环境级 `VecNormalize`，SimBa 网络内不重复加入 RSNorm；模型与 `vecnormalize.pkl` 仍是不可拆分的实验产物。
   - 消融边界：若比较网络内 RSNorm 或关闭 `VecNormalize`，必须作为单独实验并明确报告，不能与主架构变量混合。
+  - 2026-10-20 修正：作者 RSNorm 实现是 agent wrapper，不等于 BatchNorm；不能只按网络内/外分类。当前 PPO 复用采样时归一化 obs 与 old_log_prob，不直接用新统计量重归一化旧 buffer；替代方案未实现（D-019）。
 - [x] 实现 SimBa actor/critic 网络。
   - 已实现：actor `d_h=256`、`L=1`、bottleneck `1024`；critic `d_h=512`、`L=2`、bottleneck `2048`；均为 input Linear、pre-LN residual FFN、stack 后 final LayerNorm。
   - 已验证：前向 shape、动作裁剪、有限梯度、`evaluate_actions()`/`predict_values()`、一次 PPO update、独立 policy 与 PPO checkpoint save/load、跨进程加载和 ONNX Runtime parity。
@@ -66,9 +81,10 @@
   - B：参数量更大的标准 MLP，用于验证“bigger MLP”是否退化。
   - C：参数量可比或更大的 PPO+SimBa。
   - 控制变量：同一 reach 环境、`revised_v2`、训练步数、seed、`n_envs`、评估条件和归一化口径。
-- [~] 先运行短 smoke/小预算实验，再决定正式规模。
+- [~] 补全训练生命周期与资源记录。
   - 已完成：单环境 SO-101 reach 的 8-step rollout/update 单元级 smoke，无 NaN；论文起点在 reach `26→5` 接口下共 4,751,627 个可训练参数。
-  - 待完成：真实 SO-101 reach 的短训练、checkpoint/VecNormalize/评估数组全流程产物与 wall-clock/显存或内存记录。
+  - 已有：正式 SimBa 与三个预算 run 的配置、final 和 eval 产物；不再把首次正式训练列为未开始。
+  - 待完成：全流程配对评估、wall-clock/显存或内存记录及公平对照。
   - 验证：训练无 NaN/OOM，checkpoint、VecNormalize、评估数组和参数统计完整。
 - [ ] 运行正式多 seed 实验并生成课程图表。
   - 指标：success rate、final distance、episode length、sample efficiency、训练方差、参数量、wall-clock、动作差分与关节速度。
@@ -118,6 +134,8 @@
 - [ ] 改善 best checkpoint 选择标准。
   - 问题：SB3 `EvalCallback` 当前按 mean reward 保存 best。
   - 验证：设计按 success rate 优先、距离/平滑度作为次级指标的 callback，并确保兼容旧 run；实现前先记录决策。
+- [ ] 修复 best 模型/归一化统计量配对，给独立 eval 增加固定 seed 与原始评估记录；不改写历史模型。
+- [ ] 训练配置不存在时 fail-fast，并改进预算 dry-run 的“预览路径尚未创建”提示；当前两项尚未实现。
 - [ ] 更新 README 中测试数量或取消易过时的硬编码数字。
   - 验证：README 与实际收集到的测试一致。
 

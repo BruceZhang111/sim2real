@@ -126,7 +126,7 @@
 - 原因：当前源码核对表明 buffer 只保存 policy 生成的 rollout 数据并计算 GAE/returns，不拥有神经网络；`forward()`、`evaluate_actions()` 和 `predict_values()` 已通过同一个 `mlp_extractor`、action head 与 value head 保证采样和训练一致。只替换主干可最大限度保持 PPO 算法、数据格式和基线可比性。
 - 放弃方案：为 SimBa 重写 rollout buffer；复制并修改整个 `PPO` 或 `train()`；仅覆写 `evaluate_actions()` 而让 rollout 收集继续使用另一套网络；直接修改虚拟环境的 `site-packages/stable_baselines3`。
 - 影响：新增 extractor 必须提供 `latent_dim_pi`、`latent_dim_vf`、`forward()`、`forward_actor()` 和 `forward_critic()`，并验证 `forward/evaluate_actions/predict_values` 的 shape、梯度、一次 rollout/update、save/load 和导出影响。RSNorm、`VecNormalize`、Adam/AdamW 等不属于本决策的既定结论，仍需论文核对和控制变量实验。
-- 状态：实现边界已采用；SimBa 代码与测试尚未完成。
+- 状态：实现边界已采用；SimBa 代码、接口测试已完成，见 STATUS 的历史测试记录与 2026-10-20 收尾核验；不代表所有性能结论已验证。
 
 ## D-015：将 Fourier simplicity score 作为代理指标而非因果结论
 
@@ -144,4 +144,38 @@
 - 原因：上述宽度和 block 数来自论文 PPO+SimBa 配置，pre-LN residual、4× inverted bottleneck、ReLU 与 final LayerNorm 来自论文主体结构。当前 wrapper 已完整维护、冻结、同步和保存 observation running statistics；再加网络内 RSNorm 会引入双重归一化并污染主架构比较。
 - 放弃方案：同时叠加 `VecNormalize` 与网络内 RSNorm；只为 SimBa 关闭 `VecNormalize` 而让 MLP 使用不同输入尺度；在第一版结构接入时同时修改 PPO optimizer、学习率和其他训练超参数。
 - 影响：MLP 与 SimBa 主比较继续共享输入尺度，并都依赖匹配的 `vecnormalize.pkl`。本轮“严格按论文”指主干拓扑，不代表完整复现 Craftax PPO 训练配方；当前仍保留 SB3 初始化、单一 optimizer 和项目学习率。归一化或 optimizer 消融必须单独配置和报告。
-- 状态：已采用；结构、SB3 接口、一次 PPO update、保存/加载和 ONNX parity 已验证，SO-101 正式训练与性能结论待完成。
+- 状态：初版结构与历史接口/保存加载/ONNX 验证已采用；截至 2026-10-20 已有正式训练产物，后续 width 设置与性能验证边界见 D-018 和 STATUS 收尾节，不再表示尚未首次训练。
+
+## D-017：训练预算消融采用冻结配置、同 seed 的独立从头训练
+
+- 日期：2026-10-19；2026-10-20 核验产物。
+- 决策：预算脚本按 200 万、300 万、500 万步串行启动独立 PPO 进程，使用同一份启动时冻结的配置；除预算及输出名称外不改环境/训练参数。失败或终端中断后不再启动后续项，dry-run 不创建配置/输出。
+- 原因：区分训练预算与配置变化，不把项目 `init_from` 的 warm start 当成完整断点续训；避免源 YAML 修改污染后续 run。
+- 影响：总预算为约 1,000 万步而不是续训至 500 万步；PPO 为完成 rollout 会略超目标。配置被冻结但代码未快照，运行期间不应修改代码。预览命令中的配置路径尚不存在，不应复制直接训练。
+- 状态：代码及 8 项模拟测试已验证；既有批次保存步数达到目标。性能对照和固定条件 DR 汇总待验证。
+
+## D-018：width 优化先缩 actor，再独立扩大 critic
+
+- 日期：2026-10-20。
+- 决策：先以 actor 128 / critic 512、blocks 1/2 对照原 actor 256 / critic 512；下一项固定 actor 128 和其他条件，仅把 critic 扩为 1024。不得把 width、深度、优化器与奖励同时改变后归因给单一因素。
+- 原因：论文 Section 7.2 的 SAC 实验支持优先扩大 critic、谨慎扩大 actor，但不保证在 PPO reach 上复现；已有 128/512 run 的单 seed 内置名义表现改善，仍需独立 DR 与多 seed。
+- 影响：当前用户 YAML 已设置 128/1024，bottleneck 512/4096；旧预算批次维持 256/512 快照不变。YAML 仍是 policy_arch=mlp，直接启动需显式启用 simba。不自动启动 1024 实验。
+- 状态：128/512 配置、训练产物及内置名义结果已核验；128/1024 仅配置加载已核验，实际训练效果待验证。
+
+## D-019：RSNorm 比较按统计生命周期解释，暂不改变 PPO 归一化
+
+- 日期：2026-10-20；补充 D-013/D-016 中“网络内/外”表述。
+- 决策：保留当前唯一的 VecNormalize observation normalization。作者公开 RSNorm 是 agent wrapper：在训练采样时更新累计统计，在网络更新时归一化原始 batch；不能把它等同于训练时使用当前 minibatch 统计的 BatchNorm，也不能声称 VecNormalize 与它工程上完全等价。
+- 原因：论文 Section 7.1 的 replay 尺度不一致解释来自 SAC/off-policy；当前 PPO rollout 存的是采样时归一化 obs，并在更新时复用。直接用新统计量重归一化旧 obs 而保留旧 log_prob，可能改变概率比率和 KL 的含义。
+- 影响：后续如比较 RSNorm，需单独设计统计冻结/更新及 old_log_prob 输入一致性；不双重归一化，不混入预算/width 实验。simplicity bias 不是时间低通滤波，“缺高频导致抗扰动差”与“延长训练必有涌现”均只是假设。
+- 状态：论文、作者公开实现及本机 PPO/VecNormalize 源码已只读核对；解释口径已采用，替代归一化代码和因果性能实验未实施。
+- 依据：论文 `https://arxiv.org/html/2410.09754v2#S7.SS1`；作者代码 `https://github.com/SonyResearch/simba/blob/master/scale_rl/agents/wrappers/normalization.py`。
+
+## D-020：计划以本地 WSL 编辑、Git 同步、服务器执行缓解算力限制
+
+- 日期：2026-10-20。
+- 用户确定的方向：保留本地 WSL 为代码编辑和版本管理源，首次把代码、所需资产与环境迁移/复建到服务器，后续通过 Git 同步同一提交，实际实验在服务器运行。服务器不是 Windows 项目副本，也不作为另一套独立开发分支随意漂移。
+- 原因：用户反馈本地 GPU 性能不足，并明确需要从 WSL SSH 入门开始指导；Codex 不假定能直接读写服务器，必要时由用户执行命令并反馈经脱敏的结果。
+- 影响：先确认服务器访问与资源，再制定安装/同步方案。Git 不自动包含 outputs、权重、环境与所有资产；环境重建/整包迁移取决于 OS/架构、驱动和 CUDA 兼容性。禁止将密码/私钥提交到 Git；不自动 push、安装系统驱动或启动长任务。
+- 与 D-001 的关系：当前已验证的本地可信源不变；未来服务器为用户指定的执行镜像，远程工作区规则、路径与验证流程待部署明确后再更新 AGENTS，不据此在未知服务器创建项目。
+- 状态：仅工作流方向已确定；SSH、代码/资产上传、环境复制或重建、Git 同步、GPU/MuJoCo 验证及性能收益均待实施/待验证。本轮未连接服务器。

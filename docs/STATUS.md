@@ -2,12 +2,63 @@
 
 **最后更新：2026-10-20（Asia/Shanghai）**
 
-## SimBa actor width 消融准备（2026-10-20）
+## 本轮收尾：已核验现状与下一轮交接（2026-10-20）
+
+本节是当前状态；后文按日期保留历史记录，不能把早期“尚未训练”的描述理解为当前状态。
+
+### 目录、Git 与操作范围
+
+- 已确认外层工作目录为 `/home/brucezhang/Dev/Projects/SO101 Sim2Real`；实际 Git 仓库及本文档位置为其下的 `sim2real/`。不得在外层另建一套 docs。
+- 收尾开始时 `main` 工作树干净，跟踪 `origin/main`，最新本地提交为 `b4f6376`（`manySimBaStuff`）；本轮收尾不创建 commit、不 fetch/push、不操作服务器。
+- 当前收尾仅修改 `docs/STATUS.md`、`docs/TASKS.md`、`docs/DECISIONS.md`。项目目标/范围未变化，服务器执行流程尚待落地，因此不修改 `PROJECT.md` 或新增 `AGENTS.md` 长期操作规则。
+- 本次进程检查未发现 Python 训练或预算脚本进程；这是检查时刻的快照，不代表持续监控。
+
+### 已有代码及当前配置
+
+- 已核对 `train.py` 的 `--addname` 命名功能、`TrainConfig.target_kl` 到 `PPO(target_kl=...)` 的传递，以及串行预算脚本和对应测试均存在于当前提交中；KL 设置为 `None` 时不启用提前停止。
+- 当前 `configs/reach_forSimBa.yaml` 已由用户改为 actor width **128** / critic width **1024**，blocks **1/2**，inverted bottleneck 为 **512/4096**。本次只验证配置加载，不再次修改 YAML；critic 1024 的训练效果**待验证**。
+- 其余当前设置：`n_envs=18`、`n_steps=512`、`batch_size=1024`、`n_epochs=18`、`learning_rate=3e-4`、`target_kl=0.33`、`seed=0`，训练 DR 开启；YAML 仍写 `policy_arch: mlp`，直接训练必须显式传 `--policy-arch simba`。预算脚本默认已显式启用 SimBa。
+- YAML 中旧的“shrink actor only / keep critic width”注释对应此前 128/512 消融，现已与用户后续设定的 critic 1024 不一致；后续整理配置时应更正，本次文档收尾不代改配置。
+
+### 训练预算与 width 实验的证据
+
+- 批次 `outputs/timestep_sweep_20261019_222032_a097e2ee/` 的共享快照仍为 actor 256 / critic 512、blocks 1/2、18 envs、KL 0.33。三个实验是同 seed 独立从头训练，不是续训。
+- 已只读检查 `final_model.zip` 中保存的 `num_timesteps` 和评估数组；三组均达到预算，PPO 完成 rollout 导致略超步数。仅证明预算与产物存在，不代表性能验证完成或恢复训练严格等价。
+
+| 该批次中的 run | 请求总步数 | final 保存步数 | 最后内置 eval 步数 |
+| --- | ---: | ---: | ---: |
+| `ppo_reach-simba-ts2000000` | 2,000,000 | 2,009,088 | 1,998,720 |
+| `ppo_reach-simba-ts3000000` | 3,000,000 | 3,004,416 | 2,998,080 |
+| `ppo_reach-simba-ts5000000` | 5,000,000 | 5,004,288 | 4,996,800 |
+
+- actor 128 / critic 512 的 run 为 `outputs/ppo_reach_20261020_104421-actor128-critic512`，final 保存步数为 2,009,088。用户反馈 width 调整后效果变好；本次核验其最后 10 次**内置名义评估**：成功率均值 0.98、回报 18.631、长度 37.34；旧 256/512、KL 0.33 run 对应为 0.925、16.633、59.45。该比较支持本次单 seed 的名义性能改善，不证明 DR 改善或普遍优于 MLP。
+- 用户此前截图报告：256/512、KL 0.33 的 best 模型 nominal 46/50、DR 19/50；MLP best nominal 45/50、DR 42/50。来源为用户终端截图，本次未重新执行；固定评估 seed、多 seed 和 best 归一化配对仍**待验证**。原始 MLP 的 `n_epochs` 确认为 **18**；其 8 envs 与这些 SimBa run 的 18 envs 也是混杂因素。
+- 200/300/500 万预算实验的固定条件 final nominal/DR 横向汇总，以及“延长预算是否改善鲁棒性”仍**待验证**，不能宣称出现 grokking 或涌现。
+
+### 已完成验证与未解决风险
+
+- 本次重新运行 `tests/test_timestep_experiments.py` 的 **8 项 unittest：通过**；子进程均为 mock，没有启动 PPO 或仿真。覆盖串行顺序、冻结配置、dry-run 无写入/训练、失败停止和中断停止。
+- 已检查 `git status` 和三份文档的 `git diff`，`git diff --check` 通过；收尾后未提交差异仅为三份指定文档，业务代码、YAML、PROJECT 和 AGENTS 不变。
+- 对 `train.py`、`config.py`、预算脚本进行内存编译语法检查通过；当前 YAML 加载及 128/1024、1/2 参数断言通过。完整 pytest、smoke、模型前向与 1024-width 的训练/导出本次**未运行**。
+- 2026-10-16 的 13 项 SimBa 定向测试与完整测试中的既有成功条件用例失败仅作为历史结果保留，不能描述为本次已重新通过。
+- `eval.py` 默认 best，但读取根目录 final 的 `vecnormalize.pkl`；best 与统计量可能不匹配。评估脚本没有显式 eval seed；回调按干净环境 mean reward 选 best，而非 DR 鲁棒性。上述实现改进均尚未完成。
+- `train.py` 对不存在的 YAML 会回退默认 Config；dry-run 打印的 shared_config 路径并不创建文件，直接复制该预览子命令可能误跑默认 MLP。修复 fail-fast 与预览提示**待实施**。
+- RSNorm 与 VecNormalize 数学目的同类，不等于实现行为完全一致；作者实现是 agent wrapper，关键在统计更新/使用时机和 buffer 是否保存原始 obs。当前不叠加第二套归一化，不在预算或 width 实验中混入归一化改动；详见 D-019。
+
+### 下一轮优先事项
+
+1. 先核对 actor 128 / critic 512 的评估证据与预算结果；固定 actor 128、blocks 1/2 及其他训练条件，验证 critic **512→1024** 的单因素对照。当前配置已是 1024，但未发现对应训练结果，需先做轻量资源检查再安排运行，不自动启动。
+2. 指导用户从本地 WSL Ubuntu 连接服务器：先收集主机地址、端口、用户名、VPN/跳板机、认证方式、OS、CPU/GPU/驱动、磁盘、权限及调度器信息。服务器路径和资源均**待确认**；不要求在聊天中提供密码或私钥。
+3. 服务器迁移目标是“本地 WSL 编辑与 Git 版本管理 → 同步同一提交到服务器 → 服务器执行”。当前尚未连接、上传、配置 SSH 或同步。代码、资产、环境和模型产物要分别处理；Git 不包含被忽略的 outputs、权重及环境。
+4. 按本地依赖清单在服务器重建并验证环境，不直接假定复制 conda 文件夹即可运行；若用户确需整包环境迁移，先核验系统/架构与驱动兼容。保留代码 SHA、实际配置、依赖版本和成对模型/VecNormalize，先 import/小型 smoke，再长训练；后台任务或调度方式依服务器规则选择。
+5. 本地环境只读基线：Python 3.11.15、torch 2.14.0、MuJoCo 3.13.0、Gymnasium 1.3.0、SB3 2.9.0、NumPy 2.4.6。这不是完整依赖锁文件；CUDA 兼容性、完整导出/锁定和服务器实测均**待完成**。DummyVecEnv 环境 step 仍在 CPU，服务器 GPU 是否提速必须实测，不保证换卡即加速。
+
+## 历史：SimBa actor width 消融准备（2026-10-20）
 
 - `configs/reach_forSimBa.yaml` 的 actor hidden dim 从 256 改为 128，critic 保持 512，block 数保持 actor 1 / critic 2；仅改变 actor width，环境、奖励、seed、KL、学习率和 epoch 等均不变。actor 的 4 倍 bottleneck 随之变为 512，critic 仍为 2048。
 - 该 YAML 的 `policy_arch` 仍为 `mlp`，未擅自修改；直接调用训练入口需显式传 `--policy-arch simba`，预算脚本默认已显式启用 SimBa。
 - 已核对预算批次 `outputs/timestep_sweep_20261019_222032_a097e2ee/shared_config.yaml` 冻结为 actor 256 / critic 512；本轮不修改该快照或任何历史输出，因此不改变这批预算实验的条件。
-- 此设置是待运行的单因素消融，不是确认更优的配置；论文 Figure 13 来自 SAC，不能直接保证 PPO 同样受益。只做轻量配置检查，不启动新训练或仿真。
+- 此记录对应当时仅 actor 256→128 的配置准备；后续 run 和用户进一步设置 critic 1024 的当前状态见上方收尾节。论文 Figure 13 来自 SAC，不能直接保证 PPO 同样受益。
 
 ## 训练预算自动化实验（2026-10-19）
 
@@ -51,7 +102,7 @@
 - 已明确 SimBa 的单个组件并非全新算子。RSNorm 的运行均值/方差递推属于既有在线统计方法；论文的主要贡献应表述为面向深度 RL 参数扩展的组件组合、实验验证和 simplicity-bias 解释，而不是首次提出 observation normalization、残差连接或 LayerNorm。
 - 已只读核对当前 SB3 2.9.0 与项目接线：reach 原始 observation 为 `qpos/qvel/TCP/target/target-TCP/last_action`，训练时由环境外层 `VecNormalize` 对每一维维护跨 episode、跨 8 个逻辑环境的全局 running mean/variance，并在每个 reset/step 应用标准化和 `[-10, 10]` 裁剪；评估时统计量冻结并从训练环境同步或从 `vecnormalize.pkl` 加载。
 - 当前 reward normalization 使用折扣回报 `G_t = gamma G_(t-1) + r_t` 的运行方差缩放单步奖励，`gamma=0.98`，不减 reward 均值；评估时关闭 reward normalization。当前 action 仅采用固定 `[-1, 1]` 坐标和 delta 模式下 `0.1 rad` 线性缩放，不属于 running-statistics normalization。
-- 现有 observation `VecNormalize` 与论文 RSNorm 在数学目的上同类，但工程位置不同：前者是 policy 外部环境 wrapper，后者是 SimBa 网络入口组件。主比较现已决定统一保留 `VecNormalize`，SimBa 网络内不重复 RSNorm，避免双重 observation normalization；归一化位置的比较若需要将另做消融（D-016）。
+- 现有 observation `VecNormalize` 与论文 RSNorm 在数学目的上同类。2026-10-20 补充核对：作者实现是 agent wrapper，区别不应简化为“网络内/外”，还包括统计量更新时间和 replay/rollout buffer 的存储与使用方式。主比较继续保留 `VecNormalize`，不叠加第二次归一化；另做消融需保证 PPO 概率比率的输入一致性（D-016、D-019）。
 - 截至原论文精读阶段尚未修改业务代码或运行测试；随后实现与验证结果见下一节。
 
 ## 本轮 SimBa 最小实现（2026-10-16）
@@ -93,7 +144,7 @@
 - `[P0]` 把课程要求、SimBa 论文主线和本仓库可执行的 PPO 实验整合为课程方案。
 - `[P0]` 明确 10 分钟 tutorial 的中心论点：参数更多并不自动带来更好的深度 RL；带有 simplicity bias 的架构才使规模化有效。
 - `[P1]` 设计标准 MLP、放大 MLP、PPO+SimBa 的控制变量实验，并确定最小可完成的参数规模与 seed 预算。
-- `[P1]` 自定义 `SimBaMlpExtractor` + `ActorCriticPolicy` 薄子类、可配置路由和单元级验证已完成；下一步是 SO-101 reach 短训练及 MLP/SimBa 控制变量实验，训练效果仍待验证。
+- `[P1]` 自定义 SimBa 接线、预算实验产物与 actor 128 / critic 512 单 seed 名义改善已核验；下一步是 critic 1024 对照、预算 nominal/DR 汇总和服务器迁移指导，多 seed 与泛化结论仍待验证。
 - 原有 revised_v2 final/best、多 seed、DR、ONNX 和实机任务转入保留队列；只保留与课程实验直接相关的评估工作为近期任务。
 
 ## 已有实验结果与分析
@@ -111,7 +162,7 @@
 
 - 当前没有阻止仿真训练继续的代码级 blocker。
 - 课程团队成员、登记状态和组内分工尚未记录；2026-10-30 是最近的外部期限。
-- PPO+SimBa 已实现并通过单元级 rollout/update、save/load 和 ONNX 验证，但尚未完成 SO-101 reach 正式训练和性能比较。
+- PPO+SimBa 已有正式训练和初步比较；尚缺固定 seed 的 paired final nominal/DR 汇总、多 seed、参数量匹配对照，以及 critic 1024 的训练证据。
 - 课程实验算力和 seed 预算尚未确定，因此不能直接照搬论文 1024 并行环境、10 亿 environment steps 的 Craftax PPO 设置。
 - 主实验的归一化口径已确定为只使用环境级 `VecNormalize`；若后续做 RSNorm/归一化位置消融，必须单独配置和报告。
 - `revised_v2` 已完成单 seed 训练，但独立 final/best 评估、动作平滑分项和多 seed 汇总尚未完成，不能据此确定最终方案。
@@ -131,7 +182,7 @@
 
 ## 最近一次测试或仿真结果
 
-- 最新训练是 revised_v2 的 200 万步 run；末次内置评估成功率 `0.90`，最后 10 次评估成功率均值 `0.945`。
+- 截至 2026-10-20，最新核验的 width run 为 actor 128 / critic 512 的 200 万步实验，最近 10 次内置名义成功率 0.98；原 revised_v2 MLP 的结果作为历史基线保留。详见本页收尾节。
 - 最近的完整横向对比仍是 origin 与 revised 的 200 万步训练，结果见上方“已有实验结果与分析”；revised_v2 尚未完成同条件独立横向评估。
 - 最近的受控功能检查是 `revised_v2` 连续保持/一次性奖励语义检查，结果符合预期。
 - 2026-10-16 SimBa 定向测试 13 项通过；完整 pytest 除既有 `test_success_when_target_at_tcp` 与 `success_hold_steps=10` 语义不一致而失败外，其余测试通过。已完成单环境 SO-101 reach 8-step PPO update，但没有新增模型性能结论。
@@ -140,7 +191,7 @@
 
 1. 在 2026-10-30 前确认 4–6 人团队、登记状态和每人的讲解/实验分工。
 2. 把 10 分钟内容压缩为问题、机制、证据、PPO 实践、结论五个部分，先形成逐页提纲和时间预算。
-3. 用 `--policy-arch simba` 先运行 SO-101 reach 短训练，核对 checkpoint、VecNormalize、评估与资源占用的完整生命周期。
+3. 先完成本页收尾节中的 critic 1024 对照准备和 WSL→服务器执行环境迁移指导；不把已完成的正式训练误写成尚待首次短训练。
 4. 再跑最小实验矩阵：当前 `2×256` MLP、参数量更大的 MLP、论文起点 SimBa，并补充参数量匹配对照；固定环境、奖励、训练预算和 seed。
 5. 若最小实验显示清晰趋势，再增加宽度扫描、组件消融和多 seed；不要在课程期限前同时扩展奖励、PPO 超参数和 sim-to-real 部署。
 6. 在 2026-11-05 前完成 slides、图表、引用、团队信息和 10 分钟彩排版本。
