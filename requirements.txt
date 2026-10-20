@@ -16,6 +16,8 @@ imageio>=2.30
 imageio-ffmpeg>=0.4
 tensorboard>=2.14
 rich>=13.0
+tqdm>=4.66,<5
+rich>=13.7,<15
 
 # Real-robot deployment only (Feetech STS3215 serial bus); optional:
 # feetech-servo-sdk>=1.0
