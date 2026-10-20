@@ -225,3 +225,15 @@
 - [ ] Review/commit local workflow edits and push main to server.
 - [ ] Clone receiver into approved execution path, compare SHA and enable fast-forward-only pulls.
 - [ ] Verify package download path and prepare compatible uv lock locally.
+
+## Direct SSH synchronization verified (2026-10-20)
+
+- [x] User verified receiver, matching local/server main SHA and clean execution checkout with local filesystem origin.
+- [ ] Install user-scoped uv and verify package download access without the rejected proxy.
+- [ ] Resolve compatible torch/SB3 versions; current SB3 2.9 requires torch>=2.8.
+- [ ] Create/validate project Python3.11 lock locally, transfer and sync on server.
+
+## uv bootstrap confirmed (2026-10-20)
+
+- [x] User checksum-verified and installed uv 0.13.3 in server user directory.
+- [ ] Install managed Python 3.11.15, check package access, prepare/test cu126 dependency candidate locally.

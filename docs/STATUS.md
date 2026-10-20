@@ -227,3 +227,15 @@ Both GPUs are RTX 4090 (24564 MiB each), currently 99%/100% utilized in the late
 ## Direct SSH Git synchronization (2026-10-20)
 
 User selected direct WSL Git -> SSH -> server after GitHub network problems and opted out of proxy forwarding. Local remote server prepared as ssh://zyg@10.181.213.48:3389/home/zyg/git/sim2real.git, preserving origin and upstream. Proposed bare receiver /home/zyg/git/sim2real.git is pending user creation; execution path /home/zyg/Projects/sim2real approved by user. No remote login/push/clone was performed by AI. uv downloads/lock and driver compatibility remain unresolved. See rewritten MIGRATION.md.
+
+## Direct SSH checkout verified by user (2026-10-20)
+
+User supplied: execution cwd /home/zyg/Projects/sim2real, clean main tracking origin/main, origin /home/zyg/git/sim2real.git, HEAD b85adacdc2bb31c7696044703ceb709a7198b058 matching local WSL. Fast-forward-only pull configuration command completed without reported error. Direct SSH receiver/push/checkout workflow is verified by user outputs; AI has not logged into the server. Local SB3 2.9.0 installed metadata requires torch>=2.8,<3.0. Therefore selecting an older CUDA 11.8 torch build alone may conflict; do not silently downgrade SB3 or assert equivalence. Next: install user-scoped uv through an available download route, verify package index reachability, then resolve and test a driver-compatible stack locally. uv.lock and remote Python3.11 environment are not yet created.
+
+## uv bootstrap without server pip (2026-10-20)
+
+User reports /usr/bin/python3 has no pip. Prepared official PyPI uv 0.13.3 manylinux x86_64 wheel locally; verified wheel SHA256 against PyPI and extracted the standalone uv binary. Local --version succeeded. Ignored transfer files are under outputs/migration-tools/uv-0.13.3-linux-x86_64/; provenance in docs/environment/server-20261020/uv-bootstrap.json. User must transfer binary/checksum over SSH, validate and install in ~/.local/bin. No server install has been performed. No system pip or sudo required. Python3.11 download and project dependencies remain pending.
+
+## Server uv installed (2026-10-20)
+
+User verified transferred binary checksum and installed uv 0.13.3 in /home/zyg/.local/bin without pip/sudo. Python 3.11.15 installation and dependency downloads remain pending. Local read-only official cu126 index inspection found torch 2.14.0+cu126 cp311/Linux x86_64 wheels, allowing a same-PyTorch-version candidate; driver minor-compatibility constraints and actual CUDA execution still require validation. No dependency changes or GPU training performed.

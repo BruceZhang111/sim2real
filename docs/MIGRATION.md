@@ -105,3 +105,11 @@ User verified GitHub via proxy at that commit, then rejected proxy dependency.
 Latest 30-second direct GitHub test produced no output; exit status was not
 captured, so timeout is suspected, not proven. No bare init, push or clone
 success has been reported yet. Local server remote setup is complete only.
+
+## Direct SSH checkout verified by user (2026-10-20)
+
+User supplied: execution cwd /home/zyg/Projects/sim2real, clean main tracking origin/main, origin /home/zyg/git/sim2real.git, HEAD b85adacdc2bb31c7696044703ceb709a7198b058 matching local WSL. Fast-forward-only pull configuration command completed without reported error. Direct SSH receiver/push/checkout workflow is verified by user outputs; AI has not logged into the server. Local SB3 2.9.0 installed metadata requires torch>=2.8,<3.0. Therefore selecting an older CUDA 11.8 torch build alone may conflict; do not silently downgrade SB3 or assert equivalence. Next: install user-scoped uv through an available download route, verify package index reachability, then resolve and test a driver-compatible stack locally. uv.lock and remote Python3.11 environment are not yet created.
+
+## uv bootstrap without server pip (2026-10-20)
+
+User reports /usr/bin/python3 has no pip. Prepared official PyPI uv 0.13.3 manylinux x86_64 wheel locally; verified wheel SHA256 against PyPI and extracted the standalone uv binary. Local --version succeeded. Ignored transfer files are under outputs/migration-tools/uv-0.13.3-linux-x86_64/; provenance in docs/environment/server-20261020/uv-bootstrap.json. User must transfer binary/checksum over SSH, validate and install in ~/.local/bin. No server install has been performed. No system pip or sudo required. Python3.11 download and project dependencies remain pending.

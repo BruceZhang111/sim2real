@@ -1,0 +1,9 @@
+{
+  "version_output": "uv 0.13.3 (x86_64-unknown-linux-gnu)",
+  "source": "https://files.pythonhosted.org/packages/7e/fa/45e1751beda39226d5472e6bb068747115a06f19c2559a8810aac9b881b7/uv-0.13.3-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+  "wheel_sha256": "8d9ba65db55f3701908b09394cb7d3248be28496aab6bd9a96e8e870261ad372",
+  "binary_sha256": "90c2ff84aa2a76a1ae70454ede3c6a9a4a40c786ccbf777148341a05cb583018",
+  "target": "Linux x86_64, manylinux glibc>=2.17",
+  "local_binary": "/home/brucezhang/Dev/Projects/SO101 Sim2Real/sim2real/outputs/migration-tools/uv-0.13.3-linux-x86_64/uv",
+  "server_status": "User verified uv.sha256 OK and installed ~/.local/bin/uv; --version reports 0.13.3 (x86_64-unknown-linux-gnu)"
+}
