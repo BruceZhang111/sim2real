@@ -217,3 +217,11 @@
 - [ ] User reviews, commits and pushes local migration preparation in WSL VS Code.
 - [ ] Clone via server VS Code GUI into a confirmed directory; verify matching SHA.
 - [ ] Prepare driver-compatible uv metadata/lock locally and sync server environment.
+
+## Direct SSH Git synchronization (2026-10-20)
+
+- [x] Record proxy-free Git-over-SSH choice and prepare local server remote.
+- [ ] User creates/verifies bare receiver without overwriting existing paths.
+- [ ] Review/commit local workflow edits and push main to server.
+- [ ] Clone receiver into approved execution path, compare SHA and enable fast-forward-only pulls.
+- [ ] Verify package download path and prepare compatible uv lock locally.

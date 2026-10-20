@@ -223,3 +223,7 @@ User logged in through VS Code Remote-SSH as zyg@linux; home /home/zyg; Ubuntu 2
 ## Server hardware and GitHub access confirmed by user (2026-10-20)
 
 Both GPUs are RTX 4090 (24564 MiB each), currently 99%/100% utilized in the latest supplied snapshot. CPU is dual Xeon Gold 6253CL, 36 physical cores / 72 logical CPUs. System Python 3.10.12; Git 2.34.1. User's server-side git ls-remote succeeded, returning origin HEAD 4894fb73b3821369fd23aab3427fa88142af5dce. This verifies repository read access at that time, not server push access or package-index access. Choose Python 3.11 for the project via uv; preserve system Python. Next: local review/commit/push of migration preparation, remote GUI clone into a confirmed project directory, then locally prepared driver-compatible uv lock and remote validation. uv.lock does not exist yet. GPU allocation and user quota remain unknown; no training started.
+
+## Direct SSH Git synchronization (2026-10-20)
+
+User selected direct WSL Git -> SSH -> server after GitHub network problems and opted out of proxy forwarding. Local remote server prepared as ssh://zyg@10.181.213.48:3389/home/zyg/git/sim2real.git, preserving origin and upstream. Proposed bare receiver /home/zyg/git/sim2real.git is pending user creation; execution path /home/zyg/Projects/sim2real approved by user. No remote login/push/clone was performed by AI. uv downloads/lock and driver compatibility remain unresolved. See rewritten MIGRATION.md.

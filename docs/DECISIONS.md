@@ -179,3 +179,7 @@
 - 影响：先确认服务器访问与资源，再制定安装/同步方案。Git 不自动包含 outputs、权重、环境与所有资产；环境重建/整包迁移取决于 OS/架构、驱动和 CUDA 兼容性。禁止将密码/私钥提交到 Git；不自动 push、安装系统驱动或启动长任务。
 - 与 D-001 的关系：当前已验证的本地可信源不变；未来服务器为用户指定的执行镜像，远程工作区规则、路径与验证流程待部署明确后再更新 AGENTS，不据此在未知服务器创建项目。
 - 状态：仅工作流方向已确定；SSH、代码/资产上传、环境复制或重建、Git 同步、GPU/MuJoCo 验证及性能收益均待实施/待验证。本轮未连接服务器。
+
+## Direct SSH Git synchronization (2026-10-20)
+
+Decision supplement (D-020): GitHub is optional local backup; server code delivery uses direct SSH Git at user request. Use a bare receiver separate from the training checkout, with manual fast-forward update when training is inactive. No automatic deployment hook or proxy forwarding dependency. Receiver creation and remote validation are pending.
