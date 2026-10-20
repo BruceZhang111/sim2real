@@ -136,3 +136,12 @@
 - 放弃方案：把低频等同于普适意义上的简单；声称 SimBa 首次提出 RSNorm、残差连接或 LayerNorm；仅凭 Figure 4 的并列趋势宣称 simplicity bias 已被证明导致更高 return。
 - 影响：slides 应明确区分“已有组件”“新组合与实验贡献”“作者解释”和“项目待验证假设”。SO-101 实验除任务回报外，还应在固定输入尺度下报告动作平滑性、扰动敏感性及必要的频率指标；是否复现论文 simplicity score 尚未决定。
 - 状态：已采用为课程叙事与实验解释口径；不表示 SO-101 上的 SimBa 性能已经验证。
+
+## D-016：第一版 PPO+SimBa 采用论文主干并复用 VecNormalize
+
+- 日期：2026-10-16
+- 决策：第一版 PPO+SimBa 使用独立 actor/critic 主干。actor 为 `Linear(feature_dim,256)` 后串行 1 个 SimBa block，critic 为 `Linear(feature_dim,512)` 后串行 2 个 SimBa block；每个 block 均为 `LayerNorm → Linear(d_h,4d_h) → ReLU → Linear(4d_h,d_h) → residual add`，stack 后再做 final LayerNorm。输入统一由现有环境级 `VecNormalize` 标准化，网络内不重复实现 RSNorm。
+- 原因：上述宽度和 block 数来自论文 PPO+SimBa 配置，pre-LN residual、4× inverted bottleneck、ReLU 与 final LayerNorm 来自论文主体结构。当前 wrapper 已完整维护、冻结、同步和保存 observation running statistics；再加网络内 RSNorm 会引入双重归一化并污染主架构比较。
+- 放弃方案：同时叠加 `VecNormalize` 与网络内 RSNorm；只为 SimBa 关闭 `VecNormalize` 而让 MLP 使用不同输入尺度；在第一版结构接入时同时修改 PPO optimizer、学习率和其他训练超参数。
+- 影响：MLP 与 SimBa 主比较继续共享输入尺度，并都依赖匹配的 `vecnormalize.pkl`。本轮“严格按论文”指主干拓扑，不代表完整复现 Craftax PPO 训练配方；当前仍保留 SB3 初始化、单一 optimizer 和项目学习率。归一化或 optimizer 消融必须单独配置和报告。
+- 状态：已采用；结构、SB3 接口、一次 PPO update、保存/加载和 ONNX parity 已验证，SO-101 正式训练与性能结论待完成。

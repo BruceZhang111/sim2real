@@ -6,6 +6,8 @@ Usage
     python -m sim2real.train --config configs/reach.yaml --reward-type origin --n-envs 8
     python -m sim2real.train --config configs/reach.yaml --reward-type revised --n-envs 8
     python -m sim2real.train --config configs/reach.yaml --reward-type revised_v2 --n-envs 8
+    python -m sim2real.train --config configs/reach.yaml --policy-arch simba
+    python -m sim2real.train --config configs/reach.yaml --policy-arch simba --addname lr=0.0001
     python -m sim2real.train --config configs/reach.yaml --device cpu
     python -m sim2real.train --config configs/pickplace.yaml --device cpu
     python -m sim2real.train --config configs/reach.yaml --timesteps 50000 --n-envs 4
@@ -65,14 +67,47 @@ from sim2real.config import Config, REPO_ROOT
 def build_model(cfg: Config, venv, tb_dir: str):
     from stable_baselines3 import PPO, SAC
 
-    # policy_kwargs = {"net_arch": [256, 256],}
-    policy_kwargs = dict(net_arch=list(cfg.train.policy_hidden))
+    if cfg.train.policy_arch == "mlp":
+        policy = "MlpPolicy"
+        policy_kwargs = dict(net_arch=list(cfg.train.policy_hidden))
+    elif cfg.train.policy_arch == "simba":
+        if cfg.train.algo != "ppo":
+            raise ValueError("policy_arch='simba' is currently supported only for PPO")
+        if not cfg.train.normalize_obs:
+            raise ValueError(
+                "policy_arch='simba' requires train.normalize_obs=true so VecNormalize "
+                "provides the observation normalization used by SimBa"
+            )
+        from stable_baselines3.common.vec_env import unwrap_vec_normalize
+
+        vec_normalize = unwrap_vec_normalize(venv)
+        if vec_normalize is None or not vec_normalize.norm_obs:
+            raise ValueError(
+                "policy_arch='simba' requires a VecNormalize environment with "
+                "norm_obs=true"
+            )
+        from sim2real.policies import SimBaActorCriticPolicy
+
+        policy = SimBaActorCriticPolicy
+        policy_kwargs = dict(
+            net_arch=[],
+            simba_actor_hidden_dim=cfg.train.simba_actor_hidden_dim,
+            simba_actor_n_blocks=cfg.train.simba_actor_n_blocks,
+            simba_critic_hidden_dim=cfg.train.simba_critic_hidden_dim,
+            simba_critic_n_blocks=cfg.train.simba_critic_n_blocks,
+        )
+    else:
+        raise ValueError(
+            f"unknown policy architecture {cfg.train.policy_arch!r} "
+            "(use 'mlp' or 'simba')"
+        )
+
     if cfg.train.algo == "ppo":
         # 连续动作 PPO 通常使用高斯分布
         policy_kwargs["log_std_init"] = cfg.train.log_std_init
     # 建立公共参数字典
     common = dict(
-        policy="MlpPolicy",
+        policy=policy,
         env=venv,
         # 控制 SB3 输出日志的详细程度
         verbose=1,
@@ -97,6 +132,7 @@ def build_model(cfg: Config, venv, tb_dir: str):
             clip_range=cfg.train.clip_range,
             # 熵奖励系数
             ent_coef=cfg.train.ent_coef,
+            target_kl=cfg.train.target_kl,
         )
     # off policy
     if cfg.train.algo == "sac":
@@ -167,13 +203,20 @@ class NormalizedEvalCallback:
         )
 
 
-def train(cfg: Config) -> Path:
+def train(cfg: Config, addname: str | None = None) -> Path:
+    if addname is not None and (
+        not addname.strip() or any(char in addname for char in ("/", "\\", "\x00"))
+    ):
+        raise ValueError("addname must be a non-empty folder suffix without path separators")
+
     from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
     from sim2real.env_factory import make_training_venv, make_eval_venv
 
     # task tag derived from the env id, e.g. SO101PickPlace-v0 -> "pickplace"
     task = cfg.env.env_id.replace("SO101", "").split("-")[0].lower() or "task"
     run_name = cfg.train.run_name or f"{cfg.train.algo}_{task}_{time.strftime('%Y%m%d_%H%M%S')}"
+    if addname is not None:
+        run_name = f"{run_name}-{addname}"
     run_dir = (REPO_ROOT / cfg.train.log_dir / run_name).resolve()
     (run_dir / "tensorboard").mkdir(parents=True, exist_ok=True)
     (run_dir / "checkpoints").mkdir(exist_ok=True)
@@ -262,6 +305,8 @@ def apply_overrides(cfg: Config, args) -> Config:
         cfg.train.n_envs = args.n_envs
     if args.algo is not None:
         cfg.train.algo = args.algo
+    if args.policy_arch is not None:
+        cfg.train.policy_arch = args.policy_arch
     if args.run_name is not None:
         cfg.train.run_name = args.run_name
     if args.init_from is not None:
@@ -282,7 +327,10 @@ def main() -> None:
     p.add_argument("--timesteps", type=int, default=None)
     p.add_argument("--n-envs", type=int, default=None)
     p.add_argument("--algo", type=str, default=None, choices=["ppo", "sac"])
+    p.add_argument("--policy-arch", type=str, default=None, choices=["mlp", "simba"])
     p.add_argument("--run-name", type=str, default=None)
+    p.add_argument("--addname", type=str, default=None,
+                   help="append a suffix to the output folder name (e.g. lr=0.0001)")
     p.add_argument("--init-from", type=str, default=None,
                    help="warm-start from this checkpoint .zip (see TrainConfig.init_from)")
     p.add_argument("--device", type=str, default=None)
@@ -306,7 +354,7 @@ def main() -> None:
         cfg.train.run_name = "smoke"
 
     cfg = apply_overrides(cfg, args)
-    train(cfg)
+    train(cfg, addname=args.addname)
 
 
 if __name__ == "__main__":

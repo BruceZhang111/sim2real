@@ -218,6 +218,7 @@ class TrainConfig:
     clip_range: float = 0.2
     ent_coef: float = 0.0
     learning_rate: float = 3e-4
+    target_kl: float | None = None
     # Initial log-std of the Gaussian policy (PPO). The SB3 default (0.0 ->
     # std 1.0) is bang-bang exploration in a [-1,1] action space; a gripper
     # under that much noise cannot keep hold of anything, so grasp states never
@@ -231,7 +232,14 @@ class TrainConfig:
     tau: float = 0.005
 
     # shared
+    policy_arch: str = "mlp"            # "mlp" | "simba"
     policy_hidden: list[int] = field(default_factory=lambda: [256, 256])
+    # SimBa PPO defaults from the paper: separate actor/critic backbones.
+    # The inverted-bottleneck expansion is fixed at 4x in the implementation.
+    simba_actor_hidden_dim: int = 256
+    simba_actor_n_blocks: int = 1
+    simba_critic_hidden_dim: int = 512
+    simba_critic_n_blocks: int = 2
     normalize_obs: bool = True
     normalize_reward: bool = True
 

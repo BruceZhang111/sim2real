@@ -36,7 +36,14 @@ so101-export = "sim2real.export_policy:main"
 so101-deploy = "sim2real.deploy.deploy_so101:main"
 
 [tool.setuptools]
-packages = ["sim2real", "sim2real.envs", "sim2real.wrappers", "sim2real.utils", "sim2real.deploy"]
+packages = [
+    "sim2real",
+    "sim2real.envs",
+    "sim2real.wrappers",
+    "sim2real.utils",
+    "sim2real.deploy",
+    "sim2real.policies",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

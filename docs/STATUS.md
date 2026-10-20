@@ -1,6 +1,26 @@
 # 项目当前状态
 
-**最后更新：2026-10-16（Asia/Shanghai）**
+**最后更新：2026-10-20（Asia/Shanghai）**
+
+## SimBa actor width 消融准备（2026-10-20）
+
+- `configs/reach_forSimBa.yaml` 的 actor hidden dim 从 256 改为 128，critic 保持 512，block 数保持 actor 1 / critic 2；仅改变 actor width，环境、奖励、seed、KL、学习率和 epoch 等均不变。actor 的 4 倍 bottleneck 随之变为 512，critic 仍为 2048。
+- 该 YAML 的 `policy_arch` 仍为 `mlp`，未擅自修改；直接调用训练入口需显式传 `--policy-arch simba`，预算脚本默认已显式启用 SimBa。
+- 已核对预算批次 `outputs/timestep_sweep_20261019_222032_a097e2ee/shared_config.yaml` 冻结为 actor 256 / critic 512；本轮不修改该快照或任何历史输出，因此不改变这批预算实验的条件。
+- 此设置是待运行的单因素消融，不是确认更优的配置；论文 Figure 13 来自 SAC，不能直接保证 PPO 同样受益。只做轻量配置检查，不启动新训练或仿真。
+
+## 训练预算自动化实验（2026-10-19）
+
+- 新增 `scripts/run_timestep_experiments.py`：串行从头运行 200 万、300 万、500 万步 PPO 实验；默认显式启用 SimBa，其余参数来自同一份启动时冻结的配置，seed、环境、奖励、DR、采样和优化设置不变。
+- 使用 `python scripts/run_timestep_experiments.py --dry-run` 预览；去掉 `--dry-run` 才启动。默认读取 `configs/reach_forSimBa.yaml`，可用 `--config` 指定其他配置；拒绝非空 `init_from`，失败或 Ctrl+C 后不再启动后续实验。
+- 每批在配置的输出根目录下创建独立 `timestep_sweep_<时间>_<随机标识>/`，保留共享配置、命令清单和三个独立 run。PPO 为完成 rollout 可能略超预算；配置被冻结，但运行期间仍应保持源代码不变。
+- 本轮仅进行轻量脚本验证，不启动正式训练或仿真，不修改训练入口、已有 YAML 或历史输出。
+- 验证：8 项不启动真实子进程的单元测试通过（含源 YAML 在两次实验间被修改时仍复用同一快照）；真实配置 `--dry-run` 与 `git diff --check` 通过。完整训练与性能结论仍待用户执行。
+
+## 训练目录命名补充（2026-10-19）
+
+- `train.py` 新增 `--addname`：在自动生成或 `--run-name` 指定的目录名称后追加 `-<后缀>`，例如 `--addname lr=0.0001`。此参数仅作命名标签，不修改学习率。
+- 已通过轻量语法、命名和 CLI 透传检查。当前训练进程继续运行，未修改已有输出目录；本轮没有启动模型、仿真或完整测试。
 
 ## 当前优先级变更
 
@@ -22,7 +42,7 @@
 - 已确认 `self.policy` 与 `self.rollout_buffer` 是 `PPO` 下的并列对象：神经网络输出由同一个 `ActorCriticPolicy` 实例计算，buffer 只保存 rollout 时的 `old_values`/`old_log_prob` 并计算 GAE advantages 与 returns，不包含神经网络。
 - 已确认 PPO+SimBa 的最小接入边界：保留 `RolloutBuffer`、`collect_rollouts()`、`PPO.train()` 和既有 `evaluate_actions()`；在项目内实现兼容 `MlpExtractor` 接口的 SimBa actor/critic 主干，并用 `ActorCriticPolicy` 薄子类覆写 `_build_mlp_extractor()`。
 - 当前 reach 接口已核对为 observation 26 维、连续 action 5 维；minibatch 中 `evaluate_actions()` 应继续返回 `values (B,1)`、`log_prob (B,)`、`entropy (B,)`。
-- 本轮没有实现 SimBa 代码，没有运行 pytest、smoke、训练或性能实验。SimBa block 的精确结构、RSNorm 与 `VecNormalize` 的组合、optimizer 配置和保存/导出兼容性均为待验证。
+- 截至该接口梳理阶段尚未实现 SimBa；随后完成的代码与验证见下方“本轮 SimBa 最小实现”。
 
 ## 本轮 SimBa 原论文精读与现有归一化核对（2026-10-16）
 
@@ -31,8 +51,18 @@
 - 已明确 SimBa 的单个组件并非全新算子。RSNorm 的运行均值/方差递推属于既有在线统计方法；论文的主要贡献应表述为面向深度 RL 参数扩展的组件组合、实验验证和 simplicity-bias 解释，而不是首次提出 observation normalization、残差连接或 LayerNorm。
 - 已只读核对当前 SB3 2.9.0 与项目接线：reach 原始 observation 为 `qpos/qvel/TCP/target/target-TCP/last_action`，训练时由环境外层 `VecNormalize` 对每一维维护跨 episode、跨 8 个逻辑环境的全局 running mean/variance，并在每个 reset/step 应用标准化和 `[-10, 10]` 裁剪；评估时统计量冻结并从训练环境同步或从 `vecnormalize.pkl` 加载。
 - 当前 reward normalization 使用折扣回报 `G_t = gamma G_(t-1) + r_t` 的运行方差缩放单步奖励，`gamma=0.98`，不减 reward 均值；评估时关闭 reward normalization。当前 action 仅采用固定 `[-1, 1]` 坐标和 delta 模式下 `0.1 rad` 线性缩放，不属于 running-statistics normalization。
-- 现有 observation `VecNormalize` 与论文 RSNorm 在数学目的上同类，但工程位置不同：前者是 policy 外部环境 wrapper，后者是 SimBa 网络入口组件。是否保留二者、移除其一或设置消融尚未决定；直接叠加会形成双重 observation normalization，正式实现前必须先固定公平比较方案。
-- 本轮没有修改业务代码，没有运行 pytest、`make smoke`、训练或性能评估；上述结论来自原论文、当前项目代码、当前安装的 SB3 2.9.0 源码和配置的只读核对。
+- 现有 observation `VecNormalize` 与论文 RSNorm 在数学目的上同类，但工程位置不同：前者是 policy 外部环境 wrapper，后者是 SimBa 网络入口组件。主比较现已决定统一保留 `VecNormalize`，SimBa 网络内不重复 RSNorm，避免双重 observation normalization；归一化位置的比较若需要将另做消融（D-016）。
+- 截至原论文精读阶段尚未修改业务代码或运行测试；随后实现与验证结果见下一节。
+
+## 本轮 SimBa 最小实现（2026-10-16）
+
+- 已新增 `sim2real/policies/simba.py`，包含 `SimBaBlock`、兼容 SB3 `MlpExtractor` 契约的 `SimBaMlpExtractor`，以及只覆写 `_build_mlp_extractor()` 的 `SimBaActorCriticPolicy`；未修改 `PPO.train()`、rollout buffer、GAE、动作分布或 PPO loss。
+- 网络严格按论文主干拓扑实现：已归一化 observation 先经无激活的 Linear；每个 block 为 `LayerNorm → Linear(d_h,4d_h) → ReLU → Linear(4d_h,d_h) → residual add`；所有 block 后再做 final LayerNorm。actor 使用 `d_h=256, L=1`，critic 使用 `d_h=512, L=2`。
+- `TrainConfig`、`configs/reach.yaml` 和 CLI 已增加 `policy_arch: mlp|simba` 及 SimBa hidden/block 参数。默认仍为 `mlp`；使用 `--policy-arch simba` 启用。SimBa 当前只支持 PPO，并要求实际传入启用 observation normalization 的 `VecNormalize`。
+- 网络内没有 RSNorm 或其他运行统计模块；现有 `env_factory` 的 `VecNormalize` 是唯一 observation running-statistics normalization，评估、保存与 ONNX 仍沿用原有统计量生命周期。
+- `tests/test_simba_policy.py` 的 13 项定向测试通过，覆盖配置加载、精确层次/维度、shape、动作范围、梯度、SB3 policy 契约、Pendulum 与真实 SO-101 reach 各一次 8-step PPO update、默认 MLP 路径、错误配置、独立 policy/PPO save-load、跨进程加载及 ONNX Runtime parity。
+- reach 的 26 维 observation、5 维 action 配置下，该论文起点共有 4,751,627 个可训练参数。当前 `2×256` MLP 约 146,955 个参数，因此第一轮论文配置不是参数量公平匹配，正式实验还需加入 matched-size 对照。
+- 本轮只保证论文 SimBa 主干拓扑；初始化、单一 SB3 optimizer 和学习率仍沿用项目基线，没有同时切换到论文附录的 AdamW/`1e-4` 配方。尚未运行正式 SO-101 训练，因此没有新增性能结论。
 
 ## Git 与运行状态
 
@@ -56,14 +86,14 @@
   - `revised_v2`：保留平滑项，将 near 权重由 0.4 降到 0.1；只在连续 10 步达标并完成 episode 时一次性给 20 分成功奖励。
 - `info` 语义已拆分：`within_threshold` 表示当前步进入 2 cm 阈值，`is_success` 只表示连续保持后真正完成，另有 `success_hold_count`。
 - 为保留 `n_envs=8` 又避免 SubprocVecEnv 的进程复制开销，训练环境已采用单进程 `DummyVecEnv` 顺序管理 8 个环境。
-- 当前测试目录包含 30 个测试函数，覆盖配置、环境 API、奖励、DR、包装器、FK、抓取碰撞、课程重置和部署总线等。
+- 当前测试还新增 SimBa 结构、梯度、SB3 接线、保存/加载与 ONNX parity 覆盖。
 
 ## 当前正在进行
 
 - `[P0]` 把课程要求、SimBa 论文主线和本仓库可执行的 PPO 实验整合为课程方案。
 - `[P0]` 明确 10 分钟 tutorial 的中心论点：参数更多并不自动带来更好的深度 RL；带有 simplicity bias 的架构才使规模化有效。
 - `[P1]` 设计标准 MLP、放大 MLP、PPO+SimBa 的控制变量实验，并确定最小可完成的参数规模与 seed 预算。
-- `[P1]` SB3 接入路径已缩小为自定义 `SimBaMlpExtractor` + `ActorCriticPolicy` 薄子类；论文 block 结构和当前归一化接线已核对，RSNorm/`VecNormalize` 的主比较与消融方案仍待决定，网络实现和训练效果仍待验证。
+- `[P1]` 自定义 `SimBaMlpExtractor` + `ActorCriticPolicy` 薄子类、可配置路由和单元级验证已完成；下一步是 SO-101 reach 短训练及 MLP/SimBa 控制变量实验，训练效果仍待验证。
 - 原有 revised_v2 final/best、多 seed、DR、ONNX 和实机任务转入保留队列；只保留与课程实验直接相关的评估工作为近期任务。
 
 ## 已有实验结果与分析
@@ -81,9 +111,9 @@
 
 - 当前没有阻止仿真训练继续的代码级 blocker。
 - 课程团队成员、登记状态和组内分工尚未记录；2026-10-30 是最近的外部期限。
-- PPO+SimBa 尚未实现；当前 `sim2real/train.py` 只通过 SB3 `MlpPolicy` 和 `policy_hidden` 构建标准 MLP。
+- PPO+SimBa 已实现并通过单元级 rollout/update、save/load 和 ONNX 验证，但尚未完成 SO-101 reach 正式训练和性能比较。
 - 课程实验算力和 seed 预算尚未确定，因此不能直接照搬论文 1024 并行环境、10 亿 environment steps 的 Craftax PPO 设置。
-- 网络内 RSNorm 与环境级 `VecNormalize` 已确认属于同类 observation running-statistics 标准化但位于不同层级；主实验是否保留现有 wrapper、如何避免双重归一化及如何设置消融尚未决定，若处理不当会把归一化差异误当成架构收益。
+- 主实验的归一化口径已确定为只使用环境级 `VecNormalize`；若后续做 RSNorm/归一化位置消融，必须单独配置和报告。
 - `revised_v2` 已完成单 seed 训练，但独立 final/best 评估、动作平滑分项和多 seed 汇总尚未完成，不能据此确定最终方案。
 - reach 实机定量验收阈值、真实机械臂标定值和多 seed 实验预算：**待确认**。
 - pick-and-place 实机依赖外部物体位姿感知，当前尚未接入。
@@ -96,20 +126,22 @@
 - 单一 seed 不能证明 reward 优劣；origin/revised/revised_v2 的正式对比至少需要相同设置和多个 seed。
 - `normalize_reward=True` 会改变训练时的奖励尺度；评估解释应区分环境原始回报与训练归一化后的信号。
 - README 中“28 fast CPU tests”与当前扫描到的 30 个测试函数不一致，文档数字需要维护。
+- 论文 PPO+SimBa 起点约 475 万参数，远大于当前约 14.7 万参数的 `2×256` MLP；不能把两者的直接结果解释成参数量公平的纯架构比较。
+- 当前保留 SB3 初始化、Adam 和项目学习率，尚未复现论文附录的完整 PPO optimizer 配方；任何报告必须区分“拓扑复现”与“训练 recipe 复现”。
 
 ## 最近一次测试或仿真结果
 
 - 最新训练是 revised_v2 的 200 万步 run；末次内置评估成功率 `0.90`，最后 10 次评估成功率均值 `0.945`。
 - 最近的完整横向对比仍是 origin 与 revised 的 200 万步训练，结果见上方“已有实验结果与分析”；revised_v2 尚未完成同条件独立横向评估。
 - 最近的受控功能检查是 `revised_v2` 连续保持/一次性奖励语义检查，结果符合预期。
-- 2026-10-16 最近两轮仅完成 SB3 接口核对、SimBa 原论文精读和现有归一化实现的只读检查，没有运行 pytest、smoke、额外 eval、viewer 或训练；因此没有新增模型性能结论。
+- 2026-10-16 SimBa 定向测试 13 项通过；完整 pytest 除既有 `test_success_when_target_at_tcp` 与 `success_hold_steps=10` 语义不一致而失败外，其余测试通过。已完成单环境 SO-101 reach 8-step PPO update，但没有新增模型性能结论。
 
 ## 下一步建议
 
 1. 在 2026-10-30 前确认 4–6 人团队、登记状态和每人的讲解/实验分工。
 2. 把 10 分钟内容压缩为问题、机制、证据、PPO 实践、结论五个部分，先形成逐页提纲和时间预算。
-3. 先确定 RSNorm 与现有 `VecNormalize` 的公平比较矩阵，明确主实验是否允许双重 observation normalization；记录决策后再实现可配置的 `mlp`/`simba` policy architecture。
-4. 先跑最小实验矩阵：当前 `2×256` MLP、参数量更大的 MLP、参数量可比的 SimBa；固定环境、奖励、训练预算和 seed。
+3. 用 `--policy-arch simba` 先运行 SO-101 reach 短训练，核对 checkpoint、VecNormalize、评估与资源占用的完整生命周期。
+4. 再跑最小实验矩阵：当前 `2×256` MLP、参数量更大的 MLP、论文起点 SimBa，并补充参数量匹配对照；固定环境、奖励、训练预算和 seed。
 5. 若最小实验显示清晰趋势，再增加宽度扫描、组件消融和多 seed；不要在课程期限前同时扩展奖励、PPO 超参数和 sim-to-real 部署。
 6. 在 2026-11-05 前完成 slides、图表、引用、团队信息和 10 分钟彩排版本。
 

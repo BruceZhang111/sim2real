@@ -21,9 +21,9 @@
 3. SimBa 的 Running Statistics Normalization、pre-LayerNorm residual feedforward block 和 post-LayerNorm 分别解决什么问题？
 4. 在相同 SO-101 reach 环境、奖励、采样预算和评估条件下，PPO+SimBa 是否比同规模或更大的 PPO+MLP 更具样本效率、稳定性和参数可扩展性？
 
-课程实验的最低比较矩阵为：当前 PPO MLP 基线、增大宽度或深度的 PPO MLP、PPO+SimBa。当前基线由 SB3 `MlpPolicy` 和 `policy_hidden=[256, 256]` 构成；SimBa 版本尚未实现。论文在 PPO 实验中采用 actor 1 个 residual block、hidden dim 256，critic 2 个 residual blocks、hidden dim 512，可作为起点，但本项目是否完全复现该设置仍需结合 SB3 策略接口与算力预算验证。
+课程实验的最低比较矩阵为：当前 PPO MLP 基线、增大宽度或深度的 PPO MLP、PPO+SimBa。当前基线由 SB3 `MlpPolicy` 和 `policy_hidden=[256, 256]` 构成；第一版 PPO+SimBa 主干已按论文配置实现为 actor 1 个 residual block、hidden dim 256，critic 2 个 residual blocks、hidden dim 512，但尚未运行正式训练或得到性能结论。
 
-实验必须保持控制变量：固定 reach 环境、`revised_v2` 奖励、训练步数、seed 集合、评估脚本与归一化口径；网络架构和参数规模是主要自变量。比较指标至少包括成功率、最终距离、episode length、sample efficiency、训练稳定性、参数量、训练时间和动作平滑性。SimBa 的网络内 RSNorm 与项目现有环境级 `VecNormalize` 不能直接视为同一机制；正式实现前需要明确二者的组合与消融方式，避免归一化差异污染架构结论。
+实验必须保持控制变量：固定 reach 环境、`revised_v2` 奖励、训练步数、seed 集合、评估脚本与归一化口径；网络架构和参数规模是主要自变量。比较指标至少包括成功率、最终距离、episode length、sample efficiency、训练稳定性、参数量、训练时间和动作平滑性。主比较统一复用项目现有环境级 `VecNormalize`，SimBa 网络内不再重复实现 RSNorm，避免双重 observation normalization；若后续比较归一化位置，应作为单独消融而不是混入主架构对比。
 
 课程作业要求为 4–6 人一组、展示不超过 10 分钟、2026-10-30 前完成小组信息登记、2026-11-05 前将含团队信息的 slides 发送至 `bddl2017@163.com`，并在本学期第 8 周进行 tutorial presentation。当前阶段的首要交付物是可讲清楚的研究故事、可复现实验和 10 分钟 slides，而不是实机验收。
 

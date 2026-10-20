@@ -109,9 +109,14 @@ train:
   learning_starts: 10000
   train_freq: 1
   tau: 0.005
+  policy_arch: mlp
   policy_hidden:
   - 256
   - 256
+  simba_actor_hidden_dim: 256
+  simba_actor_n_blocks: 1
+  simba_critic_hidden_dim: 512
+  simba_critic_n_blocks: 2
   normalize_obs: true
   normalize_reward: true
   eval_freq: 25000

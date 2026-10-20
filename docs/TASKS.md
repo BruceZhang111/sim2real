@@ -40,27 +40,35 @@
 
 ## P2：在 SO-101 reach 中实现 PPO+SimBa
 
+- [x] 准备 actor width 单因素消融：`reach_forSimBa.yaml` actor 256→128，critic 512、blocks 1/2 和其他训练条件不变；不修改既有预算批次快照。
+- [ ] 在相同预算和评估条件下比较 actor 128 / 256 的名义与随机化性能，再决定是否单独扩大 critic width。
+- [x] 增加训练预算自动化脚本：冻结同一配置，串行从头运行 200 万、300 万、500 万步，支持无副作用预览、失败/中断停止后续实验。
+- [ ] 执行训练预算实验并比较随机化环境表现；脚本已提供，本轮未启动训练。
+- [x] 为训练入口增加 `--addname`，在新 run 目录名称末尾追加实验标签；参数只影响后续启动的训练。
 - [x] 确认 PPO+SimBa 的最小接入边界。
   - 已验证：`self.policy` 与 `self.rollout_buffer` 是独立对象；buffer 不包含神经网络，`old_values`/`old_log_prob` 来自 rollout 时同一个 policy 实例的输出。
   - 已决策：保留 `RolloutBuffer`、`collect_rollouts()`、`PPO.train()` 和既有 `evaluate_actions()`，通过兼容 `MlpExtractor` 接口的 `SimBaMlpExtractor` 与 `ActorCriticPolicy._build_mlp_extractor()` 接入。
-  - 边界：此项只表示源码接口和实现位置已经核对，不表示 SimBa 网络已经实现或通过训练验证。
-- [ ] 设计可配置的 policy architecture 接口。
-  - 候选配置：`policy_arch: mlp|simba`，并分别记录 actor/critic block 数、hidden dim、归一化和参数量。
-  - 验证：未知架构或未知字段明确报错；旧配置仍可复现当前 SB3 `MlpPolicy` 行为。
-- [~] 明确 RSNorm 与现有 `VecNormalize` 的关系并记录决策。
+  - 当前实现：`SimBaActorCriticPolicy` 只覆写 `_build_mlp_extractor()`，PPO 算法与 buffer 均未改动。
+- [x] 设计可配置的 policy architecture 接口。
+  - 已实现：`policy_arch: mlp|simba`；SimBa actor/critic 的 hidden dim 与 block 数分别配置，4× expansion 与 ReLU 固定为论文结构。
+  - 已验证：未知架构、SAC+SimBa、缺少 observation `VecNormalize` 均明确报错；默认 `mlp` 路径仍使用 SB3 `MlpPolicy` 与 `policy_hidden`。
+- [x] 明确 RSNorm 与现有 `VecNormalize` 的关系并记录决策。
   - 已核对：当前 reach 使用 SB3 2.9.0 `VecNormalize`；observation 在每个 reset/step 逐维标准化，统计量跨 episode 和 8 个逻辑环境累计，训练时更新、评估时冻结，输出裁剪到 `[-10, 10]`。
   - 已核对：reward 使用折扣回报方差进行缩放且不减均值；action 是 `[-1, 1]` 固定坐标到 `0.1 rad` delta 的线性映射，后二者都不是 SimBa RSNorm。
-  - 待决定：主比较采用现有 `VecNormalize`、网络内 RSNorm 或二者的哪种组合；需要避免未经说明的双重 observation normalization，并设置必要消融。
-  - 完成标准：将最终主比较和消融方案写入 `DECISIONS.md`，旧 MLP 基线与 SimBa 的输入尺度保持可解释和可复现。
-- [ ] 实现 SimBa actor/critic 网络。
-  - 论文起点：actor 1 block/256 hidden，critic 2 blocks/512 hidden，pre-LN residual block、4× inverted bottleneck、ReLU、post-LN。
-  - 验证：前向形状、动作范围、梯度、保存/加载、评估和 ONNX 影响均有针对性检查。
+  - 已决定：主比较统一保留环境级 `VecNormalize`，SimBa 网络内不重复加入 RSNorm；模型与 `vecnormalize.pkl` 仍是不可拆分的实验产物。
+  - 消融边界：若比较网络内 RSNorm 或关闭 `VecNormalize`，必须作为单独实验并明确报告，不能与主架构变量混合。
+- [x] 实现 SimBa actor/critic 网络。
+  - 已实现：actor `d_h=256`、`L=1`、bottleneck `1024`；critic `d_h=512`、`L=2`、bottleneck `2048`；均为 input Linear、pre-LN residual FFN、stack 后 final LayerNorm。
+  - 已验证：前向 shape、动作裁剪、有限梯度、`evaluate_actions()`/`predict_values()`、一次 PPO update、独立 policy 与 PPO checkpoint save/load、跨进程加载和 ONNX Runtime parity。
+  - 复现边界：本轮严格对齐论文主干拓扑，但保留 SB3 初始化与当前 PPO optimizer/learning rate；不是论文完整训练配方复现。
 - [ ] 建立最小架构比较矩阵。
   - A：当前 PPO MLP `2×256`。
   - B：参数量更大的标准 MLP，用于验证“bigger MLP”是否退化。
   - C：参数量可比或更大的 PPO+SimBa。
   - 控制变量：同一 reach 环境、`revised_v2`、训练步数、seed、`n_envs`、评估条件和归一化口径。
-- [ ] 先运行短 smoke/小预算实验，再决定正式规模。
+- [~] 先运行短 smoke/小预算实验，再决定正式规模。
+  - 已完成：单环境 SO-101 reach 的 8-step rollout/update 单元级 smoke，无 NaN；论文起点在 reach `26→5` 接口下共 4,751,627 个可训练参数。
+  - 待完成：真实 SO-101 reach 的短训练、checkpoint/VecNormalize/评估数组全流程产物与 wall-clock/显存或内存记录。
   - 验证：训练无 NaN/OOM，checkpoint、VecNormalize、评估数组和参数统计完整。
 - [ ] 运行正式多 seed 实验并生成课程图表。
   - 指标：success rate、final distance、episode length、sample efficiency、训练方差、参数量、wall-clock、动作差分与关节速度。
