@@ -20,13 +20,15 @@
 - [x] 基于本对话实际输出记录服务器已安装 uv/Python/torch CUDA、依赖检查/smoke 成功及直接 SSH Git/outputs 传输流程；不表示 uv.lock、调度策略或提速已验证。
 - [x] 制定课程最小三组/五组矩阵、机制诊断与两阶段 Fourier 分析边界，并记录 D-021～D-023。
 
-### 下一轮首要：评估可信度（不需新训练）
+### 当前首要：评估可信度（实现已验证，服务器重评待执行）
 
-- [ ] 在本地给 eval 增加独立评估 seed、固定场景/随机流协议、逐 episode CSV/JSON/元数据导出，保存模型哈希、配置/代码版本、归一化路径及版本。
-- [ ] 给未来 best 保存同步 VecNormalize，严格按模型选择配对；历史缺失不覆盖、不伪造。课程主比较先使用 final+配套 final stats，检查 _find_model 的静默回退是否误报 which。
-- [ ] 对 seed/原始导出/模型统计量配对写针对性测试；按照 AGENTS 做风险匹配的验证，不自动启动长训练。
+- [x] 在本地给 eval 增加独立评估 seed、固定场景/随机流协议、逐 episode CSV/JSON/元数据导出，保存模型哈希、配置/代码版本、归一化路径及版本。
+- [x] 给未来 best 保存同步 VecNormalize，严格按模型选择配对；历史缺失不覆盖、不伪造。课程主比较先使用 final+配套 final stats，检查 _find_model 的静默回退是否误报 which。
+- [x] 对 seed/原始导出/模型统计量配对写针对性测试；按照 AGENTS 做风险匹配的验证，不自动启动长训练。
 - [ ] 用户同步后，统一 deterministic final nominal/DR 各≥200回合、相同测试 seed/场景重评所有已有 reach；origin 单列 reward 历史。记录成功、距离、episode长度和平滑性，保存 raw 数据。
 - [ ] 重新核对服务器 freeze：原清单有 rich15 但无 tqdm；requirements.txt 重复 rich 且新增 <15 上限，pyproject.toml 缺 tqdm。保留原快照、统一依赖声明并补最终快照，确认软件/资产版本再复用 seed0。锁文件与固定CUDA源仍待实现/验证。
+
+实现说明与服务器执行命令见 EVALUATION.md；本地30项相关测试和短smoke已通过，未自动提交/推送或启动长训练。
 
 ### 新训练：最低三组，若讲分支扩展则五组
 

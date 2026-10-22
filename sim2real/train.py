@@ -175,11 +175,29 @@ class NormalizedEvalCallback:
     # 只涉及读取信息并根据信息判断，不进行任何修改
     @staticmethod
     def make(cfg: Config, eval_venv, best_dir: str, log_dir: str):
-        from stable_baselines3.common.callbacks import EvalCallback
+        from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
         from stable_baselines3.common.vec_env import VecNormalize
 
         # SB3 Callback 的 _on_step() 是按“向量环境调用次数”触发的
         eval_freq = max(cfg.train.eval_freq // cfg.train.n_envs, 1)
+
+        class _SaveBestPair(BaseCallback):
+            def _on_step(self) -> bool:
+                # EvalCallback invokes this immediately after saving a new best.
+                import json
+                from sim2real.eval import file_hash
+
+                vn = self.model.get_vec_normalize_env()
+                if vn is not None:
+                    directory = Path(best_dir)
+                    vn.save(str(directory / "vecnormalize.pkl"))
+                    pair = dict(
+                        num_timesteps=self.model.num_timesteps,
+                        model_sha256=file_hash(directory / "best_model.zip"),
+                        normalization_sha256=file_hash(directory / "vecnormalize.pkl"),
+                    )
+                    (directory / "best_pair.json").write_text(json.dumps(pair, indent=2) + "\n")
+                return True
 
         class _Cb(EvalCallback):
             def _on_step(self) -> bool:
@@ -195,6 +213,7 @@ class NormalizedEvalCallback:
         return _Cb(
             eval_venv,
             best_model_save_path=best_dir,
+            callback_on_new_best=_SaveBestPair(),
             log_path=log_dir,
             eval_freq=eval_freq,
             n_eval_episodes=cfg.train.n_eval_episodes,
@@ -291,6 +310,15 @@ def train(cfg: Config, addname: str | None = None) -> Path:
         vn = model.get_vec_normalize_env()
         if vn is not None:
             vn.save(str(run_dir / "vecnormalize.pkl"))
+            import json
+            from sim2real.eval import file_hash
+
+            pair = dict(
+                num_timesteps=model.num_timesteps,
+                model_sha256=file_hash(run_dir / "final_model.zip"),
+                normalization_sha256=file_hash(run_dir / "vecnormalize.pkl"),
+            )
+            (run_dir / "final_pair.json").write_text(json.dumps(pair, indent=2))
         venv.close()
         eval_venv.close()
 

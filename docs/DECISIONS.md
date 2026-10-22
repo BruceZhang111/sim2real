@@ -191,7 +191,7 @@ Decision supplement (D-020): GitHub is optional local backup; server code delive
 - 已采用的分析口径：origin MLP保留为历史起点；架构主比较使用revised_v2。将用户final 200回合结果标为单训练seed、无固定eval seed截图反馈，不把其优于旧MLP直接归因于SimBa架构。
 - 原因：现有MLP为8env/无KL，候选SimBa为18env/KL0.33；best选择按nominal reward且与final VecNormalize可能错配。64/512 best在849456步，final在2009088步；其末期rollout不能等同early best的DR能力。
 - 决策：报告优先比较同预算final+同run最终统计量；未来保存best时配套统计量，独立eval固定场景/seed并保存raw结果。历史文件保留，不以回退或估计统计量冒充精确best配对；验证集与最终测试集分离。
-- 状态：证据分级和报告口径已采用；评估seed/导出/配对代码尚未实施，统一独立评估待验证。
+- 状态（2026-10-22 实施补充）：固定逐回合eval seed、CSV/JSON/元数据导出、严格best/final选择及未来模型/统计量哈希配对已本地实现；30项相关测试与短smoke通过。历史best不补造统计量；历史final仅目录约定配对并显式标记。服务器统一200回合评估仍待用户提交/推送、服务器ff-only同步后执行。nominal/DR随机数消费不同，属于分层评估，不冒称逐目标配对。
 - 补充D-018：本轮已找到并核验128/1024的2M/3M完整产物，不能再说仅配置存在；该组DR排名、多seed与机制仍待验证。
 - 补充D-020：用户已完成server裸仓库、执行checkout、uv/Python3.11/torch2.8+cu126及smoke，来源为本对话输出及已提交环境记录；本轮未访问服务器。GitHub本地GUI、服务器命令行push/pull、outputs独立scp/rsync，沿用既有本地编辑/服务器执行规则。uv.lock、调度/配额与提速未验证。
 

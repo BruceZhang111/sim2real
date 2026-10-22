@@ -2,9 +2,20 @@
 
 **最后更新：2026-10-22（Asia/Shanghai）**
 
-## 本轮收尾：实验审计与课程最小补充方案（2026-10-22）
+## 最新收尾：固定评估与产物配对实现（2026-10-22）
 
-本节为最新交接；后文 2026-10-20 及更早内容为历史快照。早期“未训练”“服务器待配置”等状态不再代表当前状态，但原有有效证据保留。课程目标/范围未变化，本轮不修改 PROJECT.md 或 AGENTS.md。
+- 开始时实际 WSL 仓库 main 跟踪 origin/main，git status/diff 干净；已读取 AGENTS、PROJECT、TASKS、原 2026-10-22 审计交接及 D-021～D-023。本轮全部源码/文档写入 WSL，未建立 Windows 副本，未 commit/push 或访问服务器。
+- eval 默认 final、200 回合、eval_seed=20000；每回合显式 reset(seed=eval_seed+i)，确定性 CPU 推理、冻结 VecNormalize、原始 reward。禁止模型静默回退或归一化缺失时继续。相同模式内共享 seed，nominal/DR 为不同随机流分层，不宣称逐目标配对。
+- 每次使用独立新目录输出 metadata.json、episodes.csv、results.json，记录逐回合 success、末距（m）、return、长度、时长与命令差分/幅度；JSON 记录初始目标，元数据含模型/归一化/配置 SHA256、代码版本/dirty/diff hash、依赖版本和 seed 口径。命令平滑性不等同实际关节或执行器平滑性。
+- future best 保存同一时点 VecNormalize 和 best_pair.json；future final 保存 final_pair.json。评估验证存在的哈希清单；历史 final 仅标记 run-relative legacy pairing，不能追溯证明同时保存。历史 best 缺 stats/清单直接报错，未伪造或覆盖历史文件。
+- 修改 sim2real/eval.py、sim2real/train.py；新增 tests/test_eval_protocol.py、docs/EVALUATION.md（9 个 run 清单及服务器命令）。现有审计结论和单训练 seed/n_envs/KL 混杂不变；短验证不作为课程性能证据。
+- 验证：新增9项评估测试 + 13项 SimBa + 8项预算脚本，共30项通过。真实历史 MLP 的 nominal/DR 各2回合重复评估逐回合完全一致（共8回合），不修改归一化原文件。覆盖严格配对、哈希篡改拒绝、导出防覆盖、best回调和seed边界。
+- make smoke 通过（4000请求/4096实际步）；补 final manifest 后在独立目录再运行等价 smoke，通过，目录 outputs/smoke_eval_pairs_20261022_165730。该新smoke的best nominal、final DR各1回合CLI评估和哈希验证/原始导出也已贯通。只新增本轮短 smoke 产物，保留全部历史模型。未运行完整 pytest；本轮相关30项已覆盖评估、架构接口和串行预算入口。既有 ONNX 弃用提示及测试用 Pendulum 无 Monitor 提示不影响通过结果。
+- 待办：用户审阅并提交本地修改后 git push server main；确认服务器训练停止、工作区干净再 git pull --ff-only，核对 SHA/依赖/资产后依 docs/EVALUATION.md 重评 9 组 final nominal/DR 各200回合。尚未同步或重评服务器，不宣称性能已补齐。随后冻结五组3seed配方，再进行 Fourier/有效状态切片分析。
+
+## 历史收尾：实验审计与课程最小补充方案（2026-10-22）
+
+本节为当时的审计交接；最新实现见上节。后文 2026-10-20 及更早内容为历史快照。早期“未训练”“服务器待配置”等状态不再代表当前状态，但原有有效证据保留。课程目标/范围未变化，本轮不修改 PROJECT.md 或 AGENTS.md。
 
 ### 范围、证据与验证边界
 
