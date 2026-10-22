@@ -183,3 +183,34 @@
 ## Direct SSH Git synchronization (2026-10-20)
 
 Decision supplement (D-020): GitHub is optional local backup; server code delivery uses direct SSH Git at user request. Use a bare receiver separate from the training checkout, with manual fast-forward update when training is inactive. No automatic deployment hook or proxy forwarding dependency. Receiver creation and remote validation are pending.
+
+
+## D-021：课程结论先使用统一 final 协议，区分奖励历史与架构证据
+
+- 日期：2026-10-22。
+- 已采用的分析口径：origin MLP保留为历史起点；架构主比较使用revised_v2。将用户final 200回合结果标为单训练seed、无固定eval seed截图反馈，不把其优于旧MLP直接归因于SimBa架构。
+- 原因：现有MLP为8env/无KL，候选SimBa为18env/KL0.33；best选择按nominal reward且与final VecNormalize可能错配。64/512 best在849456步，final在2009088步；其末期rollout不能等同early best的DR能力。
+- 决策：报告优先比较同预算final+同run最终统计量；未来保存best时配套统计量，独立eval固定场景/seed并保存raw结果。历史文件保留，不以回退或估计统计量冒充精确best配对；验证集与最终测试集分离。
+- 状态：证据分级和报告口径已采用；评估seed/导出/配对代码尚未实施，统一独立评估待验证。
+- 补充D-018：本轮已找到并核验128/1024的2M/3M完整产物，不能再说仅配置存在；该组DR排名、多seed与机制仍待验证。
+- 补充D-020：用户已完成server裸仓库、执行checkout、uv/Python3.11/torch2.8+cu126及smoke，来源为本对话输出及已提交环境记录；本轮未访问服务器。GitHub本地GUI、服务器命令行push/pull、outputs独立scp/rsync，沿用既有本地编辑/服务器执行规则。uv.lock、调度/配额与提速未验证。
+
+## D-022：课程补充实验按主比较→分支单因素→可选扩展排序
+
+- 日期：2026-10-22。
+- 已采用的规划：先修评估、重评已有final，不优先继续扩大网络或训练预算。统一revised_v2、DR、2M、18env、n_steps512、batch1024、epochs18、lr3e-4、KL0.33与软件资产；训练seeds0/1/2，独立nominal/DR各≥200回合的固定测试集。
+- 最低主比较为MLP2×256、MLP2×1440、SimBa64/512（blocks1/2）。2×1440按当前26维obs/5维action预估4,236,491参数，与SimBa4,252,235差约0.37%；必须实例化实测。该匹配控制总量，不控制分支分配、激活和初始化。
+- 分支结论补SimBa256/512与64/256，形成固定critic的actor64→256及固定actor的critic256→512。128/512已有中间探索点；64/1024为可选峰值检验。五组各3seed共15次，最多复用两个协议一致seed0，至少新增13次2M；复用需先核对服务器版本。
+- 精细容量匹配候选为MLP actor[172,172]/critic[2040,2040]，预估4,256,031参数；当前MLP构建器未支持独立列表，作为可选扩展，不把它写成已完成实验。
+- 原因：已有actor sweep支持小actor方向，critic512→1024只在固定actor128的rollout上有单seed收益；尚无critic64/256→512或更大MLP受控数据，不能宣布普遍scaling律。128/1024约1696万参数，名义eval并不明显差，早best或不同预算会误导。
+- 状态：优先级与候选矩阵已写入任务；没有新建YAML、自动运行或完成多seed结果。若大MLP不退化，照实报告；不以符合论文叙事为筛选标准。
+
+## D-023：Fourier 分析分开测初始化偏置与训练后行为，不作单因素因果证明
+
+- 日期：2026-10-22；补充D-015/D-019。
+- 已采用的分析边界：性能证据与公平对照先完成，然后做A=随机初始化toy网络simplicity bias、B=训练后actor/critic局部频谱。A为架构/初始化的代理分布；B为具体模型/输入域的行为描述，不能互相替代。
+- A以论文§5.1/Appendix B二维标量函数、[-100,100]^2、300×300网格和100初始化为参考，需先核对作者实现的频谱/初始化约定；SB3与论文初始化不同须单列。不是直接对高维checkpoint换成二维输入。资源预算先预览，不自动重计算。
+- B用多个共同有效状态/目标切片，重算FK/TCP/target-TCP等关联量，分别分析actor确定性动作均值各维与PPO critic的V(s)。共同物理域+各自冻结归一化与共同归一化域的网络本体分析分别报告；clip饱和、DC、常量函数、幅度归一化、FFT边界泄漏与网格分辨率显式处理。
+- 机制仅列假设：较简单控制律可能适合小actor，critic需拟合变化的价值目标；较大actor还可能改变PPO更新幅度。用共同轨迹的value/GAE误差、KL/梯度和扰动敏感性诊断，不能把SAC Q函数解释直接当成本项目PPO V函数证明，也不能把低频等同时间平滑或抗扰动能力。
+- 状态：方法与解释边界已采用；Fourier代码、灰度/频谱图、100初始化统计和因果干预均未完成、待验证。
+- 依据：https://arxiv.org/html/2410.09754v2#S5.SS1 、Appendix B与§7.2（SAC actor/critic scaling）。本项目复用VecNormalize且为PPO，只能称部分架构实践/改编分析，不能称完整复现论文全部实验。

@@ -1,10 +1,107 @@
 # 项目当前状态
 
-**最后更新：2026-10-20（Asia/Shanghai）**
+**最后更新：2026-10-22（Asia/Shanghai）**
 
-## 本轮收尾：已核验现状与下一轮交接（2026-10-20）
+## 本轮收尾：实验审计与课程最小补充方案（2026-10-22）
 
-本节是当前状态；后文按日期保留历史记录，不能把早期“尚未训练”的描述理解为当前状态。
+本节为最新交接；后文 2026-10-20 及更早内容为历史快照。早期“未训练”“服务器待配置”等状态不再代表当前状态，但原有有效证据保留。课程目标/范围未变化，本轮不修改 PROJECT.md 或 AGENTS.md。
+
+### 范围、证据与验证边界
+
+- 已通过 WSL 确认外层目录 `/home/brucezhang/Dev/Projects/SO101 Sim2Real`；实际 Git 根目录、代码与 docs 均在其下 `sim2real/`。开始时 main 跟踪 origin/main，HEAD 为 `2e503cc`，工作树干净。
+- 本轮只读扫描全部 outputs：发现 9 个 reach run 和 1 个 pickplace run 具备 config.yaml/final_model.zip；课程比较仅使用 reach。读取 YAML、模型 zip/data、policy.pth（CPU、weights_only=True）、eval/evaluations.npz 和 TensorBoard 原始 scalar；没有启动训练、仿真、独立 eval 或 Fourier 实验，也未修改代码/配置/历史产物。
+- 当前本地预算批次只发现 ts5000000 的完整 run；此前文档中已核验的 ts2000000/ts3000000 本轮未在该目录找到，不推测是否删除/移动，也不把历史核验当作本轮重新验证。
+- 未发现本地 sim2real.train/预算脚本进程（检查时刻快照）；没有访问服务器或确认服务器当前负载。
+- 下表参数量来自 final 权重张量 numel；actor 包含 action head 与 log_std，critic 包含 value head。曲线数值为原始最后 10 个日志点的算术均值，非 TensorBoard 平滑值；rollout 指标本身已是滑动 episode 统计，不能当成独立重复实验。
+
+### 实验清点与已有证据
+
+| run（outputs/ 下） | 架构/宽度 | n_envs / target_kl | final 步数 | 参数量 | 末10 rollout 成功率 | 末10 内置 nominal eval 成功率 |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| ppo_reach_20261012_114650_nenvs8_origin | MLP 2×256，origin reward | 8 / None | 2,002,944 | 146,955 | 0.655 | 0.990 |
+| ppo_reach_20261013_120248-revised_v2 | MLP 2×256，revised_v2 | 8 / None | 2,002,944 | 146,955 | 0.849 | 0.945 |
+| ppo_reach_20261019_110612-simba-L12 | SimBa 256/512，blocks 1/2 | 8 / None | 2,002,944 | 4,751,627 | 0.330 | 0.750 |
+| ppo_reach_20261019_174807-KL0.33 | SimBa 256/512，blocks 1/2 | 18 / 0.33 | 2,009,088 | 4,751,627 | 0.434 | 0.925 |
+| ppo_reach_20261020_104421-actor128-critic512 | SimBa 128/512，blocks 1/2 | 18 / 0.33 | 2,009,088 | 4,353,163 | 0.577 | 0.980 |
+| ppo_reach_20261020_113536-actor128-critic1024 | SimBa 128/1024，blocks 1/2 | 18 / 0.33 | 2,009,088 | 16,958,603 | 0.828 | 0.985 |
+| ppo_reach_20261020_154940-actor128-critic1024-timesteps | SimBa 128/1024，3M | 18 / 0.33 | 3,004,416 | 16,958,603 | 0.927 | 0.980 |
+| ppo_reach_20261021_203622-actor64-critic512 | SimBa 64/512，blocks 1/2 | 18 / 0.33 | 2,009,088 | 4,252,235 | 0.933 | 0.985 |
+| timestep_sweep_20261019_222032_a097e2ee/ppo_reach-simba-ts5000000 | SimBa 256/512，5M | 18 / 0.33 | 5,004,288 | 4,751,627 | 0.688 | 0.940 |
+
+- 上述 run 的训练 seed 均为 0。除 origin 外 reward 均为 revised_v2；各 reach 配置的 dr 段相同且 enabled=true。
+- origin 是历史 MLP 起点，不能与 revised_v2 直接比较 reward 数值，也不能把奖励改进归功于架构。现有直接架构基线应使用 revised_v2 MLP；origin 可作为“奖励设计→稳定基线”的历史背景。早期成功语义/代码版本与当前 eval 是否完全一致仍待核对。
+- 固定 critic=512 的 256→128→64 actor sweep，在 YAML 层面其余环境/训练条件相同，支持“缩小 actor 在该 seed/配方下改善训练表现”。固定 actor=128 的 critic 512→1024，支持训练 rollout 改善；不等于已证明 critic 越大越好。128/1024 的内置名义指标并不明显弱于 64/512；前者 DR 鲁棒性、时间效率与多 seed 排名待验证。
+- 2M 与 3M 的 128/1024 run：evaluations.npz 的 timesteps/results/ep_lengths/successes 在前 2M 的数组前缀完全相同。它们不能算作两个独立 seed；不据此前缀推断启动方式或严格恢复语义。
+- 64/512 仍比 MLP 2×256 大约 28.9 倍；其 actor 为 35,402、critic 为 4,216,833 参数（约 99.2% 在 critic）。128/1024 的 critic 为 16,822,273 参数。报告不能只报 hidden width 或声称 SimBa 更省总参数。
+- TensorBoard event 首末时间跨越不同机器/运行条件，含潜在暂停或启动开销；本轮不据此声称服务器提速或架构计算效率结论。
+
+### 用户服务器 final 评估反馈（2026-10-22，非本轮重跑）
+
+来源为本对话终端截图，200 episodes、deterministic=True，模型均为 final_model.zip，配套各 run 根目录 vecnormalize.pkl。截图未提供固定 eval seed/per-episode 原始数据；本地仅找到训练回调 evaluations.npz，不能把它当作下面的独立 DR 评估原始数据。
+
+| 模型 | nominal 成功率 | nominal 距离均值/中位数 mm | nominal return | DR 成功率 | DR 距离均值/中位数 mm | DR return |
+| --- | --- | --- | ---: | --- | --- | ---: |
+| MLP revised_v2 | 94.0%（188/200） | 13.4 / 12.0 | 18.09 | 86.0%（172/200） | 15.5 / 13.2 | 16.40 |
+| SimBa 64/512 | 98.5%（197/200） | 11.2 / 10.4 | 18.71 | 96.0%（192/200） | 12.1 / 11.3 | 18.40 |
+
+- 支持本次用户评估下 SimBa 的 nominal +4.5 个百分点、DR +10 个百分点，DR 平均末距降低 3.4 mm；这是单训练 seed 的候选优势，不是多 seed 显著性结论，也不是 origin 对照的结果。
+- MLP 为 8 envs/无 target_kl，而候选为 18 envs/target_kl=0.33，且训练环境依赖版本可能不同。n_steps=512 时 rollout batch 分别为 4096/9216，更新节奏也不同；不能把该结果全归因于架构。
+
+### best/final 与评估可信度
+
+- 已核对 best 元数据及 evaluations.npz：64/512 best 为 849,456 步、nominal mean reward 19.5688017；revised_v2 MLP best 为 1,925,000 步、19.68347615。128/1024 的 2M 与 3M best 都在 649,584 步（19.912 左右）。
+- rollout 用训练中随机动作，内置 eval 用 nominal 环境和确定性动作；best 按 nominal mean reward 的严格新高保存，与末期 rollout/DR 成功率不是同一个选择标准。平滑曲线峰值不能代替原始评估点。
+- train.py 保存 best 时不另存对应 VecNormalize；eval.py 默认 best 却总加载根目录 final 统计量。best/统计量错配风险仍存在且未修复；不能再用“early best + final stats”的劣势证明大网络泛化更差。
+- 课程主比较优先 final+同一 run 的 final VecNormalize、相同训练预算和固定评估场景。后续补 best 统计量保存/严格配对，对缺失配对的历史 best 明确标记，不伪造或覆盖原始产物。
+- eval.py 尚无显式 eval seed、逐 episode CSV/JSON、平均长度/平滑性输出；没有固定测试场景。先完善评估，再运行新训练；本轮仅制定方案，未实现。
+
+### 课程实验的最小补充顺序（计划，均待验证）
+
+统一配方先冻结为 revised_v2、DR 当前范围、2M 环境步、18 envs、n_steps=512、batch_size=1024、n_epochs=18、lr=3e-4、target_kl=0.33、相同归一化/软件/资产版本。所有组统一使用，不把此配方描述成最优 PPO 配方。训练 seeds 至少 0/1/2；独立 eval 固定与训练不同的场景 seed 集合，nominal/DR 各至少 200 回合、冻结统计量、确定性动作。评估 seeds 与训练 seeds 分开记录。
+
+1. **P0：不新增训练，先重评已有 final。** 评估 MLP origin（单独 reward 背景）、MLP revised_v2、SimBa 256/512、128/512、64/512、128/1024（2M/3M）和 256/512 5M；保存逐 episode 原始结果、长度、距离与动作平滑性。DR 分项扰动（只延迟/只噪声/只动力学）优先挑 64/512、256/512 做诊断，非全量笛卡尔网格。
+2. **P1：主结论最小三组，每组 3 个训练 seed。** A=MLP [256,256]；B=MLP [1440,1440]（预估 4,236,491 参数，与 64/512 总参数差约 0.37%，创建后须实测）；C=SimBa actor64/critic512、blocks1/2。A/B 按统一配方新跑 seed0/1/2；C 的 seed0 可作为候选复用，须先确认服务器代码/配置/软件版本，不满足则重跑。最多复用 1 项，因此至少新增 8 次 2M 训练（约 16M 环境步）。
+3. **P2：若要讲 actor/critic 不对称，加入 D=SimBa256/512 与 E=SimBa64/256，每组 seed0/1/2。** D 已有 seed0，仍须协议核对；E 全部待跑。与 C 形成固定 critic 的 actor64→256、固定 actor 的 critic256→512。五组完整最低矩阵为 15 次训练，最多复用 C/D 两个 seed0，新增至少 13 次（26M 环境步）；不声称已经做完。
+4. **可选峰值检验：SimBa64/1024。** 先统一 seed0 预览，若要进入结论同样补足三 seed；它固定 actor64 后检验 critic512→1024 是否饱和或退化。actor32/512、深度扫描和组件消融排在上述证据之后，不再同时扫学习率/epochs/DR 强度。
+5. 参数量匹配只解决容量混杂，B/C 的 actor/critic 分配仍不同。若核心结论强调精确架构贡献，可扩展 MLP 独立 net_arch，再做 actor [172,172] / critic [2040,2040]（预估总 4,256,031；分支数接近 35,402/4,216,833）对照。当前 build_model 的 MLP 接口只接受共享宽度列表；该接口扩展与对照均未实现，不作为最低交付硬前置。
+6. 输出三类图：统一 final 的 nominal/DR 成功率及距离（每 seed 点+均值/训练 seed 方差）、训练曲线/样本效率、参数量与计算成本。episode 重采样误差不能代替训练 seed 方差；3 个 seed 仅为课程最低重复数，仍应注明统计局限。尚未得到 bigger MLP 退化的受控结果；若不退化，如实报告而不筛选失败 seed。
+
+### actor/critic 机制解释：候选假设与诊断
+
+- PPO actor 输出动作分布均值；critic 估计 V(s)，并经 TD residual/GAE 影响优势，不是 SAC 的 Q(s,a)。任务策略可能比随机动力学下的价值预测更简单，因此小 actor/较大 critic 是合理假设，不是本轮因果结论。
+- 固定 critic512 时 actor256/128/64 的末10 approx_kl 约 0.569/0.240/0.078；支持“actor 宽度可能影响更新幅度”的诊断方向。target_kl 是停止条件而非 KL 硬上限；不能把相关性解释成已证明机制。
+- 固定 actor128 时 critic512/1024 的末10 explained_variance 约 0.440/0.461；64/512 为约 0.358，而旧 MLP 为约 0.714。说明高 explained_variance 并不自动对应更好策略，跨 run 的不同状态分布也不可直接等价比较。
+- 待验证：在共同的留出轨迹上比较 value 预测误差/EV（注意策略特定的 V 目标）、GAE/TD residual 分布、actor 梯度/KL/clip_fraction、动作差分与局部输入扰动敏感性；需要相同观测分布、固定目标定义，不直接比较不同归一化回报尺度的 value_loss。critic 噪声拟合、塑性/优化限制和输入敏感性均仅是候选解释。
+
+### 下一阶段 Fourier / Simplicity Bias 分析协议（尚未实现）
+
+- 两层问题分开：A=随机初始化架构的 simplicity-bias 代理；B=训练后 actor/critic 的函数频谱和局部敏感性。灰度函数图与 FFT 频谱图各司其职，不能仅凭一张平滑灰度图断言泛化原因。
+- A 参考论文 §5.1/Appendix B：二维输入、标量输出、[-100,100]^2 的 300×300 网格，100 次随机初始化。先做少量 seed/低分辨率资源预览，再批量计算；核对作者 Fourier 实现、幅值/功率、频率权重和初始化方案后才能称复现。比较实际 SB3 初始化与论文初始化时单独标注，不能混入架构结论。
+- A 不直接把高维 checkpoint 填进二维输入；明确建立相同标量读出/初始化协议的二维 toy 网络，或把项目切片方法标为“改编”。actor/critic 分别分析，不用宽度相同假设参数相同。
+- B 优先从共同留出有效状态采样，固定姿态与 last_action，扫描目标平面时重算 target-TCP 等关联观测；如改变关节也重算 FK，避免独立乱改 qpos/TCP/误差导致离开物理观测流形。每个模型各用其配套冻结 VecNormalize；actor 分动作维度分析确定性均值（主图尽量避免 clip 饱和），critic 分析标量 V，不分析随机动作样本。
+- 网络本体用共同归一化输入域，部署行为用共同原始物理域+各自归一化，两者分别报告；归一化/clip 对谱的影响需显式说明。不要将论文 [-100,100] toy 域直接当作项目 clipped-to-10 的有效观测域。
+- 至少输出共享坐标/色标的函数灰度图、log FFT 幅值或功率图、径向频谱、按明确约定计算的频率加权复杂度/高频占比。常量/近常量输出、DC 是否去除、窗函数/边界泄漏、网格分辨率和读出尺度需显式处理；未核对作者实现前不得称数值完全复现，也不把常量零策略误判为好策略。
+- 初始化多 seed 的频谱分布描述架构偏好，训练后多状态切片描述学得行为；两者与成功率只有相关性，PPO 优化、样本分布和探索仍是替代解释。
+- 原文依据：https://arxiv.org/html/2410.09754v2#S7.SS2 （actor/critic scaling 为 SAC 实验）；https://arxiv.org/html/2410.09754v2#S5.SS1 与 Appendix B（初始化 Fourier）。本项目为 PPO，不能写成完整复现 SAC 扩展规律。
+
+### 服务器工作流现状（来自本对话反馈与已提交清单）
+
+- 用户已完成 VS Code Remote-SSH、server bare receiver `/home/zyg/git/sim2real.git`、执行目录 `/home/zyg/Projects/sim2real`；SSH `zyg@10.181.213.48:3389`。本地推送 `git push server main`，服务器训练停止/结束后 `git pull --ff-only`；GitHub 推送独立由本地 GUI 管理。
+- 已有用户输出验证 uv0.13.3、Python3.11.15、torch2.8.0+cu126、CUDA可用/2卡、依赖检查及 smoke 成功；环境清单已提交。本轮未重跑；已提交 requirements-installed.txt 含 rich==15.0.0、未列 tqdm，不能当作当前完整环境。requirements.txt 还有重复 rich 声明（>=13.0 与 >=13.7,<15），与该快照不一致；pyproject.toml 尚未声明 tqdm。仅记录问题，本轮未改依赖；重新核对服务器 freeze、统一两份声明及锁定环境仍待执行。未生成 uv.lock，不得写成已锁定环境。
+- outputs 不经 Git，用 scp/rsync 在本地 WSL 与服务器传输。交互 GLFW 在无 DISPLAY 的 SSH 上失败符合 headless 限制；可下载配套 run 本地可视化或用已有视频入口。GPU 配额/调度/断线保持、可复现实测吞吐仍待确认。
+
+### 本轮收尾与恢复入口
+
+- 本轮修改仅为 STATUS.md、TASKS.md、DECISIONS.md；无业务代码/配置变更，无新训练或测试通过声明。完成数据一致性只读检查和文档 diff 检查，未自动 commit/push。
+- 下一轮首要任务：在本地完善固定 eval seed、逐 episode 导出和模型/统计量配对，保留历史产物；同步到服务器后统一重评已有 final，再冻结五组最小矩阵。不要先重训所有大网络，也不要先凭频谱解释结果。
+
+供新对话恢复提示词：
+
+> 请继续 WSL Ubuntu 项目。先确认外层 /home/brucezhang/Dev/Projects/SO101 Sim2Real，实际 Git 根目录为其下 sim2real；读取 AGENTS.md、docs/PROJECT.md、STATUS.md 顶部 2026-10-22 收尾、TASKS.md、DECISIONS.md D-021～D-023 并检查 git status/diff。不要在 Windows 建副本，不自动 commit/push/启动长训练。已审计 9 个 reach run；原始 origin MLP 仅作奖励历史，主基线为 revised_v2 MLP。用户服务器 final 各200回合：MLP nominal94%/DR86%，SimBa64/512 nominal98.5%/DR96%，属单seed且 n_envs/KL 混杂。best 过早且配 final 统计量的风险未修复，eval 尚无固定seed/原始导出。先在本地修复评估协议并做针对性验证，再由用户同步服务器重评 final；随后统一18env/KL0.33/2M/seeds0,1,2，最低五组 MLP256、总参数匹配MLP1440、SimBa64/512、256/512、64/256，最多复用两个seed0（版本待核对）。课程目标是可靠架构/分支容量证据，再做初始化 toy Fourier 与训练后有效状态切片分析；严禁将灰度平滑当因果证明。服务器路径 /home/zyg/Projects/sim2real，裸仓库 /home/zyg/git/sim2real.git，SSH3389；本地修改和提交，服务器仅拉取执行。保留所有历史产物与未提交修改。
+
+## 历史收尾：已核验现状与下一轮交接（2026-10-20）
+
+本节保留 2026-10-20 当时的核验记录；最新状态见顶部 2026-10-22 收尾。
 
 ### 目录、Git 与操作范围
 
