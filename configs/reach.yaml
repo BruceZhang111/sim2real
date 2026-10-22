@@ -104,6 +104,7 @@ train:
   gae_lambda: 0.95
   clip_range: 0.2
   ent_coef: 0.0
+  target_kl: 0.33
   learning_rate: 0.0003
   buffer_size: 1000000
   learning_starts: 10000

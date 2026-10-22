@@ -28,10 +28,9 @@ specify a new directory, but an existing directory is rejected.
 .venv/bin/python -m sim2real.eval --run "$RUN" --which final --episodes 200 --eval-seed 20000 --randomize
 ```
 
-Audited local run names (verify server availability; do not substitute silently):
+Eight historical revised_v2 runs (origin excluded by user; verify server availability). These retain their original training n_envs/KL and are exploratory evidence only:
 
-- outputs/ppo_reach_20261012_114650_nenvs8_origin (reward history only)
-- outputs/ppo_reach_20261013_120248-revised_v2 (architecture baseline)
+- outputs/ppo_reach_20261013_120248-revised_v2 (historical revised_v2 MLP; no KL, not the new controlled baseline)
 - outputs/ppo_reach_20261019_110612-simba-L12
 - outputs/ppo_reach_20261019_174807-KL0.33
 - outputs/ppo_reach_20261020_104421-actor128-critic512

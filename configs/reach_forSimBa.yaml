@@ -94,7 +94,7 @@ dr:
 train:
   algo: ppo
   total_timesteps: 2000000
-  n_envs: 18
+  n_envs: 8
   seed: 0
   device: auto
   n_steps: 512

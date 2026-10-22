@@ -25,26 +25,26 @@
 - [x] 在本地给 eval 增加独立评估 seed、固定场景/随机流协议、逐 episode CSV/JSON/元数据导出，保存模型哈希、配置/代码版本、归一化路径及版本。
 - [x] 给未来 best 保存同步 VecNormalize，严格按模型选择配对；历史缺失不覆盖、不伪造。课程主比较先使用 final+配套 final stats，检查 _find_model 的静默回退是否误报 which。
 - [x] 对 seed/原始导出/模型统计量配对写针对性测试；按照 AGENTS 做风险匹配的验证，不自动启动长训练。
-- [ ] 用户同步后，统一 deterministic final nominal/DR 各≥200回合、相同测试 seed/场景重评所有已有 reach；origin 单列 reward 历史。记录成功、距离、episode长度和平滑性，保存 raw 数据。
-- [ ] 重新核对服务器 freeze：原清单有 rich15 但无 tqdm；requirements.txt 重复 rich 且新增 <15 上限，pyproject.toml 缺 tqdm。保留原快照、统一依赖声明并补最终快照，确认软件/资产版本再复用 seed0。锁文件与固定CUDA源仍待实现/验证。
+- [ ] 用户同步后，统一 deterministic final nominal/DR 各≥200回合、相同测试 seed/场景重评8组已有 revised_v2 reach；origin 不纳入本轮。记录成功、距离、episode长度和平滑性，保存 raw 数据。
+- [ ] 重新核对服务器 freeze：原清单有 rich15 但无 tqdm；requirements.txt 重复 rich 且新增 <15 上限，pyproject.toml 缺 tqdm。保留原快照、统一依赖声明并补最终快照，确认软件/资产版本；旧seed0均不复用到新8env/KL0.33矩阵。锁文件与固定CUDA源仍待实现/验证。
 
 实现说明与服务器执行命令见 EVALUATION.md；本地30项相关测试和短smoke已通过，未自动提交/推送或启动长训练。
 
 ### 新训练：最低三组，若讲分支扩展则五组
 
-共同控制：revised_v2、相同 DR/VecNormalize/软件资产、2M、18 envs、512 rollout steps/env、batch1024、epochs18、lr3e-4、KL0.33、训练 seeds0/1/2；不是最优调参宣称。final 评估优先，不按测试集挑 best。
+共同控制：revised_v2、相同 DR/VecNormalize/软件资产、2M、8 envs、512 rollout steps/env、batch1024、epochs18、lr3e-4、KL0.33、训练 seeds0/1/2；不是最优调参宣称。final 评估优先，不按测试集挑 best。
 
-| 组 | 配置 | 新增训练数（复用通过核对的 seed0 时） | 用途 |
+| 组 | 配置 | 新增训练数（seeds 0/1/2，全部新训） | 用途 |
 | --- | --- | ---: | --- |
 | A | MLP [256,256] | 3 | 公平小基线，旧8env/无KL不能替代 |
-| B | MLP [1440,1440]，预估4,236,491参数 | 3 | 与C总容量差约0.37%，检验更大MLP是否真的退化 |
-| C | SimBa64/512，blocks1/2 | 2 | 候选，现有seed0是否可复用先核对 |
-| D | SimBa256/512，blocks1/2 | 2 | 与C只改actor，核对现有seed0后复用 |
+| B | MLP [1440,1440]，实测4,236,491参数 | 3 | 与C总容量差约0.37%，检验更大MLP是否真的退化 |
+| C | SimBa64/512，blocks1/2 | 3 | 候选，多seed检验 |
+| D | SimBa256/512，blocks1/2 | 3 | 与C只改actor |
 | E | SimBa64/256，blocks1/2 | 3 | 与C只改critic，验证256→512收益 |
 
-- [ ] 冻结上述独立 YAML 和 run 命名/版本清单；核验 B 参数量、环境与归一化设置，不只看 hidden width。
-- [ ] 完成 A/B/C 的3seed主比较；至少新增8次2M（16M环境步），资源或版本不满足复用则更多。
-- [ ] 如要在presentation主张 actor/critic不对称，完成D/E；五组共15次、最多复用2项，至少新增13次2M（26M）。
+- [~] 五组独立YAML已准备于configs/architecture_8env；8env/KL0.33、seeds0/1/2、2M。已实例化核验参数与共同字段，独立8env短smoke及21项相关测试通过；服务器软件/资产版本尚待冻结。
+- [ ] 完成 A/B/C 的3seed主比较；新增9次2M（18M环境步），旧seed0不复用。
+- [ ] 如要在presentation主张 actor/critic不对称，完成D/E；五组共15次，全部新训，共30M请求环境步；旧8env/无KL及18env/KL0.33均不满足新配方。
 - [ ] 可选：SimBa64/1024 三seed，定位critic512→1024的饱和/退化；先seed0资源预览，未齐全不作多seed结论。
 - [ ] 统一导出每seed点、均值/训练seed方差、成功率/距离、学习曲线、参数量/墙钟成本；原始episode置信区间与训练seed方差分开。
 - [ ] 若要控制分支参数分配，再扩展MLP独立net_arch，候选actor[172,172]/critic[2040,2040]（预估4,256,031）；当前接口不支持，此项非最低交付硬前置。

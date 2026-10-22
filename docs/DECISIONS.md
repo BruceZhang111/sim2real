@@ -214,3 +214,11 @@ Decision supplement (D-020): GitHub is optional local backup; server code delive
 - 机制仅列假设：较简单控制律可能适合小actor，critic需拟合变化的价值目标；较大actor还可能改变PPO更新幅度。用共同轨迹的value/GAE误差、KL/梯度和扰动敏感性诊断，不能把SAC Q函数解释直接当成本项目PPO V函数证明，也不能把低频等同时间平滑或抗扰动能力。
 - 状态：方法与解释边界已采用；Fourier代码、灰度/频谱图、100初始化统计和因果干预均未完成、待验证。
 - 依据：https://arxiv.org/html/2410.09754v2#S5.SS1 、Appendix B与§7.2（SAC actor/critic scaling）。本项目复用VecNormalize且为PPO，只能称部分架构实践/改编分析，不能称完整复现论文全部实验。
+
+## D-024：用户统一8env/KL0.33，并排除origin（2026-10-22）
+
+- 用户明确指定：MLP[256,256]、revised_v2为baseline；本轮不考虑origin；所有本轮reach架构实验统一n_envs=8、target_kl=0.33。覆盖D-022先前18env及复用两个seed0的计划；历史审计记录/模型/原始config保留。
+- 五组为MLP256、MLP1440、SimBa64/512、256/512、64/256，每组seeds0/1/2、2M，其余共同配方不变。rollout batch由先前计划9216变为4096（8x512），batch_size1024可整除。
+- 已审计旧MLP为8env/无KL，旧SimBa为8env/无KL或18env/KL0.33，没有满足新组合的正式run。因此五组15次全部新训，共30M请求环境步；改YAML或重评不能追溯改变旧模型训练条件。
+- 先按固定eval协议重评8个已有revised_v2 final（nominal/DR各200回合；共16次/3200episode），作为探索数据；origin移出本轮清单。新矩阵15个final各评估两模式，共30次/6000episode。历史与新受控结果分开报告。
+- 本地更新reach入口配置并准备5个独立配置，显式设置policy_arch；不改SAC/pickplace或历史outputs，不自动commit/push、服务器同步或长训练。Fourier分析继续排在性能证据之后。

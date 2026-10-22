@@ -2,7 +2,17 @@
 
 **最后更新：2026-10-22（Asia/Shanghai）**
 
-## 最新收尾：固定评估与产物配对实现（2026-10-22）
+## 最新配方修订：8env / KL0.33（2026-10-22，用户指定）
+
+- 本轮起始main工作区干净，未提交修改为空；未自动提交或推送，未访问服务器。用户指定MLP256/revised_v2为baseline，origin退出本轮评估和比较；历史文件保留。
+- 覆盖先前18env计划：新五组统一8env、target_kl0.33、2M、seeds0/1/2；其他共同配方不变。8x512=4096 rollout batch，batch1024整除。
+- 旧MLP/SimBa没有满足8env且KL0.33组合的已审计run，seed0均不能复用；五组需新训15次，共30M请求步。旧模型改配置或重评不会变成新配方模型。
+- 本地更新reach.yaml的KL和reach_forSimBa.yaml的n_envs；其既有128/1024宽度及policy_arch保留。新增configs/architecture_8env内五份显式架构配置，用于正式矩阵，避免旧入口的隐式架构选择。
+- docs/EVALUATION.md排除origin后保留8组历史revised_v2 final统一重评（16次/3200episode），只作探索证据；新五组完整final评估30次/6000episode。TASKS与D-024同步。
+- 五组配置加载及共同字段一致性检查通过；真实26维obs/5维action的CPU实例化参数量：MLP256=146955、MLP1440=4236491、SimBa64/512=4252235、256/512=4751627、64/256=1095243。验证实例化仅用单环境，不采样/训练；正式YAML均为8env。
+- 实际8env/KL0.33的4096步短流水线验证通过，产物outputs/smoke_arch8_kl033_20261022_173615；新增final配对清单已保存。21项架构/预算相关测试通过，git diff --check通过；没有启动2M正式训练或服务器任务，未重跑完整pytest/大规模评估。下一步仍是用户同步服务器后统一重评，再运行新矩阵。
+
+## 评估实现收尾：固定评估与产物配对实现（2026-10-22）
 
 - 开始时实际 WSL 仓库 main 跟踪 origin/main，git status/diff 干净；已读取 AGENTS、PROJECT、TASKS、原 2026-10-22 审计交接及 D-021～D-023。本轮全部源码/文档写入 WSL，未建立 Windows 副本，未 commit/push 或访问服务器。
 - eval 默认 final、200 回合、eval_seed=20000；每回合显式 reset(seed=eval_seed+i)，确定性 CPU 推理、冻结 VecNormalize、原始 reward。禁止模型静默回退或归一化缺失时继续。相同模式内共享 seed，nominal/DR 为不同随机流分层，不宣称逐目标配对。
