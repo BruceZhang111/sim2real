@@ -1,4 +1,57 @@
-"""Deterministic, explicitly seeded evaluation with raw episode exports."""
+"""固定随机种子评估 SO-101 模型，并导出逐 episode 原始结果。
+
+终端用法（在服务器执行；只评估，不训练）
+----------------------------------------
+先进入仓库并激活环境，把 RUN 改成实际训练目录：
+    cd /home/zyg/Projects/sim2real
+    source .venv/bin/activate
+    RUN='outputs/你的训练目录名'
+
+1. final 模型，nominal 名义动力学，200 回合：
+    python -m sim2real.eval --run "$RUN" --which final --episodes 200 --eval-seed 20000
+
+2. 同一 final 模型，DR 鲁棒性，200 回合：
+    python -m sim2real.eval --run "$RUN" --which final --episodes 200 --eval-seed 20000 --randomize
+
+3. 快速检查（仅 2 回合；不能作为正式性能结果）：
+    python -m sim2real.eval --run "$RUN" --which final --episodes 2 --eval-seed 20000
+
+4. 显式指定新的结果目录（该目录必须不存在）：
+    python -m sim2real.eval --run "$RUN" --which final --episodes 200 --eval-seed 20000 --output "$RUN/eval_raw/manual_nominal_seed20000"
+
+5. 评估 best（仅限具备同一时点归一化文件和配对清单的模型）：
+    python -m sim2real.eval --run "$RUN" --which best --episodes 200 --eval-seed 20000
+    python -m sim2real.eval --run "$RUN" --which best --episodes 200 --eval-seed 20000 --randomize
+
+6. 查看全部参数：
+    python -m sim2real.eval --help
+
+本地 WSL 也使用相同评估命令；先激活已有 sim2real Python 环境并切换仓库：
+    cd '/home/brucezhang/Dev/Projects/SO101 Sim2Real/sim2real'
+
+参数与结果说明
+--------------
+* --run 指向训练目录，不是 final_model.zip。目录需要 config.yaml，以及所选模型
+  和配套归一化文件。相对 --run 从仓库根目录解析；--output 相对当前终端目录解析。
+* 默认 --which final、--episodes 200、--eval-seed 20000；不加 --randomize 就是
+  nominal。--randomize 使用 run 的 DR 配置；若该配置关闭 DR，不会强制开启。
+* 第 i 回合使用 20000+i（i 从 0 开始）；重新运行仍从 20000 开始。训练 seed1/2/3
+  与此独立，各模型主比较使用相同评估 seed。nominal/DR 为独立分层，不是逐目标配对。
+* 推理为 deterministic=True、CPU，冻结观测归一化，reward 不归一化。
+* final 读取 run 根目录的 final_model.zip / vecnormalize.pkl；best 读取
+  best_model/best_model.zip、best_model/vecnormalize.pkl、best_model/best_pair.json。
+  历史 best 缺少配对文件会报错，不回退到 final 或借用 final 统计量。
+* 默认自动创建 RUN/eval_raw 下带模型、模式、seed、时间戳的新目录。两种模式会分开
+  保存；终端打印 raw export 实际路径。每次独立评估，不覆盖旧结果目录。
+* metadata.json：seed、模式、文件哈希、代码/依赖版本。
+  episodes.csv：逐回合 success、final_dist_m、return、length_steps、duration_s、
+  command_delta_sq_mean、command_sq_mean、terminated/truncated。
+  results.json：汇总、逐回合记录和初始目标。
+* 汇总 success_rate 为 0~1 比例（乘 100 为百分比），mean_dist / median_dist 单位
+  为米（乘 1000 为毫米），mean_length 为控制步数。命令差分指标不是实际关节速度。
+* 可选 --video /路径/episode0.mp4 保存首回合视频；无显示服务器需可用的渲染后端。
+  正式 nominal/DR 数值评估无需开启视频或图形界面。
+"""
 from __future__ import annotations
 
 import argparse
@@ -175,7 +228,7 @@ def evaluate(run_dir: Path, episodes: int, randomize: bool, which: str = "final"
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__)
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--run", required=True)
     p.add_argument("--episodes", type=int, default=200)
     p.add_argument("--randomize", action="store_true")
